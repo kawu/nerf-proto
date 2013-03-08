@@ -30,10 +30,11 @@ library
         NLP.Nerf2.Types
       , NLP.Nerf2.CFG
       , NLP.Nerf2.Active
-      , NLP.Nerf2.Tree
       , NLP.Nerf2.SpanDiv
-      , NLP.Nerf2.TreeSet
-      , NLP.Nerf2.Phi
+      , NLP.Nerf2.Tree
+      , NLP.Nerf2.Tree.Set
+      , NLP.Nerf2.Tree.Prob
+      , NLP.Nerf2.Tree.Phi
 
     ghc-options: -Wall -O2
 

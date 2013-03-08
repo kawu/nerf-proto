@@ -1,4 +1,4 @@
-module NLP.Nerf2.Phi
+module NLP.Nerf2.Tree.Phi
 ( phiTree
 ) where
 
@@ -9,11 +9,11 @@ import NLP.Nerf2.Monad
 import qualified NLP.Nerf2.CFG as CFG 
 
 -- | A potential of a tree.
-phiTree :: Tree -> Nerf Phi
+phiTree :: Tree -> Nerf LogReal
 phiTree t = phiTreeP (posify t)
 
 -- | A potential of a tree with positions.
-phiTreeP :: TreeP -> Nerf Phi
+phiTreeP :: TreeP -> Nerf LogReal
 phiTreeP (ForkP x l p i j) = product <$> sequence
     [ phiNode x i j
     , phiBinary r

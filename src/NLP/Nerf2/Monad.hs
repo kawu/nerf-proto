@@ -2,9 +2,9 @@
 
 module NLP.Nerf2.Monad
 (
--- * Main types
+-- * Types
   Nerf
-, Phi
+, LogReal
 -- * Input
 , inputHas
 -- * Potential
@@ -23,19 +23,19 @@ import qualified NLP.Nerf2.CFG as CFG
 -- interface?  I don't know, but lets make an experiment.
 type Nerf = ST.State ()
 
--- | A potential value.
-type Phi = L.LogFloat
+-- | A real value.
+type LogReal = L.LogFloat
 
 -- | Potential of a tree node within the context.
-phiNode :: N -> Pos -> Pos -> Nerf Phi
+phiNode :: N -> Pos -> Pos -> Nerf LogReal
 phiNode = undefined
 
 -- | Potential of a binary rule.
-phiBinary :: CFG.Binary -> Nerf Phi
+phiBinary :: CFG.Binary -> Nerf LogReal
 phiBinary = undefined
 
 -- | Potential of an unary rule.
-phiUnary :: CFG.Unary -> Nerf Phi
+phiUnary :: CFG.Unary -> Nerf LogReal
 phiUnary = undefined
 
 -- | Does the input sentence have the particular terminal

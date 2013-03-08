@@ -2,6 +2,9 @@
 
 module NLP.Nerf2.Tree
 ( Tree (..)
+, beg
+, end
+, span
 , TreeP (..)
 , posify
 ) where
@@ -22,6 +25,18 @@ data Tree
         , pos       :: Pos }
     deriving (Show, Eq, Ord)
 
+-- | First position covered by a tree.
+beg :: Tree -> Pos
+beg (Fork _ t _) = beg t
+beg (Branch _ t) = beg t
+beg (Leaf _ i)   = i
+
+-- | Last position covered by a tree.
+end :: Tree -> Pos
+end (Fork _ _ t) = end t
+end (Branch _ t) = end t
+end (Leaf _ i)   = i
+
 -- | A binary tree with additional information about
 -- positions in internal nodes.
 data TreeP
@@ -29,33 +44,35 @@ data TreeP
         { labelP    :: N
         , leftP     :: TreeP
         , rightP    :: TreeP
-        , begP      :: Pos
-        , endP      :: Pos }
+        , _begP     :: Pos
+        , _endP     :: Pos }
     | BranchP
         { labelP    :: N
         , downP     :: TreeP
-        , begP      :: Pos
-        , endP      :: Pos }
+        , _begP     :: Pos
+        , _endP     :: Pos }
     | LeafP
         { terminalP :: T
         , posP      :: Pos }
     deriving (Show, Eq, Ord)
 
-beg :: TreeP -> Pos
-beg (LeafP _ i) = i
-beg t           = begP t
+-- | First position covered by a position tree.
+begP :: TreeP -> Pos
+begP (LeafP _ i) = i
+begP t           = _begP t
 
-end :: TreeP -> Pos
-end (LeafP _ i) = i
-end t           = endP t
+-- | Last position covered by a position tree.
+endP :: TreeP -> Pos
+endP (LeafP _ i) = i
+endP t           = _endP t
 
 -- | Make a TreeP from a Tree.
 posify :: Tree -> TreeP
 posify (Fork x l p) =
     let l' = posify l
         p' = posify p
-    in  ForkP x l' p' (beg l') (end p')
+    in  ForkP x l' p' (begP l') (endP p')
 posify (Branch x t) =
     let t' = posify t
-    in  BranchP x t' (beg t') (end t')
+    in  BranchP x t' (begP t') (endP t')
 posify (Leaf x i) = LeafP x i

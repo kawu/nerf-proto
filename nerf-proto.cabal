@@ -1,0 +1,35 @@
+name:               nerf-proto
+version:            0.1.0
+synopsis:           Nerf, the named entity recognition tool based on linear-chain CRFs
+description:
+    Prototype.
+license:            BSD3
+license-file:       LICENSE
+cabal-version:      >= 1.6
+copyright:          Copyright (c) 2013 Jakub Waszczuk
+author:             Jakub Waszczuk
+maintainer:         waszczuk.kuba@gmail.com
+stability:          experimental
+category:           Natural Language Processing
+homepage:           https://github.com/kawu/nerf-proto
+build-type:         Simple
+
+library
+    hs-source-dirs: src
+
+    build-depends:
+        base >= 4 && < 5
+      , containers
+      , vector
+      , binary
+      , vector-binary >= 0.1 && < 0.2
+
+    exposed-modules:
+        NLP.Nerf.Types
+      , NLP.Nerf.CFG
+
+    ghc-options: -Wall -O2
+
+source-repository head
+    type: git
+    location: https://github.com/kawu/nerf-proto.git

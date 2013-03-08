@@ -1,8 +1,17 @@
 -- | A context free grammar.
 
-module NLP.Nerf.CFG
-(
+module NLP.Nerf2.CFG
+( CFG (..)
+, Unary (..)
+, Binary (..)
+, perTopU
+, perDown
+, perTopB
+, perLeft
+, perRight
 ) where
+
+import NLP.Nerf2.Types
 
 -- TODO: implement a vector representation of a set.
 -- We want to specify that some structures are (ordered)
@@ -13,22 +22,42 @@ module NLP.Nerf.CFG
 import Data.Set as S
 
 -- | A context free grammar.
-data CFG n t = CFG
-    { unary     :: S.Set (Unary n t)
-    , binary    :: S.Set (Binary n t)
-    , nsyms     :: S.Set n
-    , tsyms     :: S.Set t
-    , start     :: S.Set n }
+data CFG = CFG
+    { unary     :: S.Set Unary
+    , binary    :: S.Set Binary
+    , nsyms     :: S.Set N
+    , tsyms     :: S.Set T
+    , start     :: S.Set N }
 
 -- | An unary CFG rule.
-data Unary n t = Unary
-    { topU  :: n
-    , down  :: Either n t }
+data Unary = Unary
+    { topU  :: N
+    , down  :: Either N T }
     deriving (Show, Eq, Ord)
 
 -- | A binary CFG rule.
-data Binary n t = Binary
-    { topB  :: n
-    , left  :: Either n t
-    , right :: Either n t }
+data Binary = Binary
+    { topB  :: N
+    , left  :: Either N T
+    , right :: Either N T }
     deriving (Show, Eq, Ord)
+
+-- | A set of unary rules with the given top symbol.
+perTopU :: CFG -> N -> [Unary]
+perTopU = undefined
+
+-- | A set of unary rules with the given down symbol.
+perDown :: CFG -> Either N T -> [Unary]
+perDown = undefined
+
+-- | A set of binary rules with the given top symbol.
+perTopB :: CFG -> N -> [Binary]
+perTopB = undefined
+
+-- | A set of binary rules with the given left symbol.
+perLeft :: CFG -> Either N T -> [Binary]
+perLeft = undefined
+
+-- | A set of binary rules with the given right symbol.
+perRight :: CFG -> Either N T -> [Binary]
+perRight = undefined

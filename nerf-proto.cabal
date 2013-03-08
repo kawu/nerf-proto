@@ -25,8 +25,11 @@ library
       , vector-binary >= 0.1 && < 0.2
 
     exposed-modules:
-        NLP.Nerf.Types
-      , NLP.Nerf.CFG
+        NLP.Nerf2.Types
+      , NLP.Nerf2.CFG
+      , NLP.Nerf2.Active
+      , NLP.Nerf2.Tree
+      , NLP.Nerf2.TreeSet
 
     ghc-options: -Wall -O2
 

@@ -23,13 +23,17 @@ library
       , vector
       , binary
       , vector-binary >= 0.1 && < 0.2
+      , logfloat
+      , mtl
 
     exposed-modules:
         NLP.Nerf2.Types
       , NLP.Nerf2.CFG
       , NLP.Nerf2.Active
       , NLP.Nerf2.Tree
+      , NLP.Nerf2.SpanDiv
       , NLP.Nerf2.TreeSet
+      , NLP.Nerf2.Phi
 
     ghc-options: -Wall -O2
 

@@ -10,12 +10,13 @@ module NLP.Nerf2.TreeSet
 ) where
 
 import Control.Applicative ((<$>))
-import qualified Data.Set as S
+import Data.Maybe (maybeToList)
 import qualified Data.Vector as V
 
 import NLP.Nerf2.Types
 import NLP.Nerf2.Active
 import NLP.Nerf2.Tree
+import NLP.Nerf2.SpanDiv
 import qualified NLP.Nerf2.CFG as C
 
 data Base = Base
@@ -48,19 +49,9 @@ treeSet'' base@Base{..} (Left x) i j
         , l <- treeSet base (C.left r) i k
         , p <- treeSet base (C.right r) (k+1) j ]
 treeSet'' Base{..} (Right x) i j
-    | i == j    =
-        if Just x == word
-            then [Leaf x i]
-            else []
+    | i == j    = maybeToList $ do
+        y <- fst <$> sent V.!? i
+        if x == y
+            then Just (Leaf x i)
+            else Nothing
     | otherwise = []
-  where
-    word = fst <$> sent V.!? i
-
--- | A set of possible divisions of the (i, j) span into two
--- neighboring (i, k) and (k+1, j) active spans.
--- The result is returned in the ascending order.
-divTop :: Active -> Pos -> Pos -> [Pos]
-divTop active i j =
-    [ k | k <- [i .. j - 1]
-    , S.member (i, k) active
-    , S.member (k+1, j) active ]

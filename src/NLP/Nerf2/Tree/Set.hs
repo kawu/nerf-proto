@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 -- | A set of potential trees.  Implemented solutions are suboptimal.
 -- They are designed for consistency-checking purposes.
 

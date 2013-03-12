@@ -4,7 +4,6 @@ module NLP.Nerf2.Monad
 (
 -- * Types
   Nerf
-, LogReal
 -- * Context free grammar
 , nerfCFG
 -- * Active set
@@ -20,7 +19,6 @@ module NLP.Nerf2.Monad
 
 import Control.Applicative ((<$>))
 import qualified Data.Set as S
-import qualified Data.Number.LogFloat as L
 import qualified Control.Monad.State.Strict as ST
 
 import NLP.Nerf2.Types
@@ -29,9 +27,6 @@ import qualified NLP.Nerf2.CFG as C
 -- | A Nerf monad.  Do we really gain anything by using the monadic
 -- interface?  I don't know, but lets make an experiment.
 type Nerf = ST.State ()
-
--- | A real value.
-type LogReal = L.LogFloat
 
 -- | A context free grammar.
 nerfCFG :: Nerf C.CFG

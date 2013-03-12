@@ -3,7 +3,8 @@
 -- | Basic Nerf internal types.
 
 module NLP.Nerf2.Types
-( O (..)
+( LogReal
+, O (..)
 , N (..)
 , T (..)
 , Sent
@@ -19,9 +20,13 @@ import Data.Vector.Generic.Base
 import Data.Vector.Generic.Mutable
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
+import qualified Data.Number.LogFloat as L
 
 import Data.Binary (Binary)
 import Data.Vector.Binary ()
+
+-- | A real value.
+type LogReal = L.LogFloat
 
 -- | An observation.
 newtype O = O { unO :: Int32 }

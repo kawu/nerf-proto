@@ -39,6 +39,8 @@ library
 
     other-modules:
         NLP.Nerf2.ListT
+      , NLP.Nerf2.Alpha.Ref
+      , NLP.Nerf2.Alpha.Rec
 
     ghc-options: -Wall -O2
 

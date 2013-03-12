@@ -4,6 +4,7 @@ module NLP.Nerf2.Tree.Phi
 
 import Control.Applicative ((<$>))
 
+import NLP.Nerf2.Types
 import NLP.Nerf2.Tree
 import NLP.Nerf2.Monad
 import qualified NLP.Nerf2.CFG as CFG 

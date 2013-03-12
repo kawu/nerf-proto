@@ -25,6 +25,7 @@ library
       , vector-binary >= 0.1 && < 0.2
       , logfloat
       , mtl
+      , transformers
 
     exposed-modules:
         NLP.Nerf2.Types
@@ -35,6 +36,9 @@ library
       , NLP.Nerf2.Tree.Set
       , NLP.Nerf2.Tree.Prob
       , NLP.Nerf2.Tree.Phi
+
+    other-modules:
+        NLP.Nerf2.ListT
 
     ghc-options: -Wall -O2
 

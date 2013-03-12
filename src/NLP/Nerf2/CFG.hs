@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | A context free grammar.
 
 module NLP.Nerf2.CFG
@@ -19,7 +21,7 @@ import NLP.Nerf2.Types
 -- transform the set into a list.
 -- You should also make some tests which prove that
 -- the vector implementation is actually faster.
-import Data.Set as S
+import qualified Data.Set as S
 
 -- | A context free grammar.
 data CFG = CFG
@@ -44,20 +46,20 @@ data Binary = Binary
 
 -- | A set of unary rules with the given top symbol.
 perTopU :: CFG -> N -> [Unary]
-perTopU = undefined
+perTopU CFG{..} x = filter ((==x).topU) (S.toList unary)
 
 -- | A set of unary rules with the given down symbol.
 perDown :: CFG -> Either N T -> [Unary]
-perDown = undefined
+perDown CFG{..} x = filter ((==x).down) (S.toList unary)
 
 -- | A set of binary rules with the given top symbol.
 perTopB :: CFG -> N -> [Binary]
-perTopB = undefined
+perTopB CFG{..} x = filter ((==x).topB) (S.toList binary)
 
 -- | A set of binary rules with the given left symbol.
 perLeft :: CFG -> Either N T -> [Binary]
-perLeft = undefined
+perLeft CFG{..} x = filter ((==x).left) (S.toList binary)
 
 -- | A set of binary rules with the given right symbol.
 perRight :: CFG -> Either N T -> [Binary]
-perRight = undefined
+perRight CFG{..} x = filter ((==x).right) (S.toList binary)

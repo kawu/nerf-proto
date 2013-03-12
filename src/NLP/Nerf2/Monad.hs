@@ -4,6 +4,7 @@ module NLP.Nerf2.Monad
 (
 -- * Types
   Nerf
+, NerfD (NerfD)
 -- * Context free grammar
 , nerfCFG
 -- * Active set
@@ -19,22 +20,35 @@ module NLP.Nerf2.Monad
 
 import Control.Applicative ((<$>))
 import qualified Data.Set as S
-import qualified Control.Monad.State.Strict as ST
+import qualified Data.Map.Strict as M
+import qualified Data.Vector as V
+import qualified Control.Monad.Reader as R
+-- import qualified Control.Monad.Trans.State.Strict as S
 
 import NLP.Nerf2.Types
 import qualified NLP.Nerf2.CFG as C 
 
+-- | Nerf data.
+data NerfD = NerfD
+    { cfg       :: C.CFG
+    , sent      :: V.Vector T   -- TODO: Include observations
+    , active    :: S.Set (Pos, Pos)
+    -- TODO: Of cource phi functions have to reimplemented.
+    , phiNodeM      :: M.Map (N, Pos, Pos) LogReal
+    , phiUnaryM     :: M.Map C.Unary LogReal
+    , phiBinaryM    :: M.Map C.Binary LogReal }
+
 -- | A Nerf monad.  Do we really gain anything by using the monadic
--- interface?  I don't know, but lets make an experiment.
-type Nerf = ST.State ()
+-- interface?  I don't know, so lets make it an experiment.
+type Nerf = R.Reader NerfD
 
 -- | A context free grammar.
 nerfCFG :: Nerf C.CFG
-nerfCFG = undefined
+nerfCFG = R.asks cfg
 
 -- | Set of active spans.
 activeSet :: Nerf (S.Set (Pos, Pos))
-activeSet = undefined
+activeSet = R.asks active
 
 -- | Is a span active?
 isActive :: Pos -> Pos -> Nerf Bool
@@ -42,17 +56,21 @@ isActive i j = S.member (i, j) <$> activeSet
 
 -- | Potential of a tree node within the context.
 phiNode :: N -> Pos -> Pos -> Nerf LogReal
-phiNode = undefined
+phiNode x i j = M.findWithDefault 1 (x, i, j) <$> R.asks phiNodeM
 
 -- | Potential of a binary rule.
 phiBinary :: C.Binary -> Nerf LogReal
-phiBinary = undefined
+phiBinary r = M.findWithDefault 1 r <$> R.asks phiBinaryM
 
 -- | Potential of an unary rule.
 phiUnary :: C.Unary -> Nerf LogReal
-phiUnary = undefined
+phiUnary u = M.findWithDefault 1 u <$> R.asks phiUnaryM
 
 -- | Does the input sentence have the particular terminal
 -- on the particular position?
 inputHas :: Pos -> T -> Nerf Bool
-inputHas = undefined
+inputHas i x = do
+    s <- R.asks sent
+    return $ case s V.!? i of
+        Just y  -> x == y
+        Nothing -> False

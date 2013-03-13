@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module NLP.Nerf2.Tree.Phi
 ( phiTree
 ) where
@@ -17,19 +19,18 @@ phiTree t = phiTreeP (posify t)
 phiTreeP :: TreeP -> Nerf LogReal
 phiTreeP (ForkP x l p i j) = product <$> sequence
     [ phiNode x i j
-    , phiBinary r
+    , phiBinary (CFG.Binary x (symP l) (symP p))
     , phiTreeP l
     , phiTreeP p ]
-  where
-    r = CFG.Binary x (sym l) (sym p)
-    sym = Left . labelP
 phiTreeP (BranchP x t i j) = product <$> sequence
     [ phiNode x i j
-    , phiUnary u
+    , phiUnary (CFG.Unary x (symP t))
     , phiTreeP t ]
-  where
-    u = CFG.Unary x (sym t)
-    sym = Left . labelP
 phiTreeP (LeafP x i) =
     let fromBool b = if b then 1 else 0
     in  fromBool <$> inputHas i x
+
+-- | Symbol in a root.
+symP :: TreeP -> Either N T
+symP LeafP{..}  = Right terminalP
+symP t          = Left (labelP t)

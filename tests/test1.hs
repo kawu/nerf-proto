@@ -15,26 +15,32 @@ import qualified NLP.Nerf2.CFG as CFG
 import qualified NLP.Nerf2.Alpha.Ref as AF
 import qualified NLP.Nerf2.Alpha.Rec as AC
 
+import Debug.Trace (trace)
+
 -- | QuickCheck parameters.
 posMax      = 5
-tMax        = 3
-nMax        = 3
-unaryMax    = 10
-binaryMax   = 10
-phiMax      = 10.0 :: Double
-descMax     = 10
+tMax        = 4
+nMax        = 4
 activeMax   = 25
-featMax     = 10
+ruleMax     = 25
+phiMax      = 10.0 :: Double
 
--- | Arbitrary set of maximum k elements (minimum 1?).
+-- | Arbitrary set of maximum k elements.
 arbitrarySet :: Ord a => Int -> Gen a -> Gen (S.Set a)
 arbitrarySet k g = S.fromList <$> vectorOf k g
 
--- | Arbitrary map of maximum k elements (minimum 1?).
+-- | Arbitrary map of maximum k elements.
 arbitraryMap :: Ord a => Int -> Gen a -> Gen b -> Gen (M.Map a b)
 arbitraryMap k g g' = (M.fromList.) . zip
     <$> vectorOf k g
     <*> vectorOf k g'
+
+-- | Arbitrary map from a set.
+mapFromSet :: Ord a => S.Set a -> Gen b -> Gen (M.Map a b)
+mapFromSet s g = do
+    let xs = S.toList s
+    ys <- vectorOf (S.size s) g
+    return $ M.fromList (zip xs ys)
 
 arbitraryPos :: Gen Pos
 arbitraryPos = choose (1, posMax)
@@ -87,8 +93,8 @@ arbitraryBinary = CFG.Binary
 -- | Arbitrary CFG.
 arbitraryCFG :: Gen CFG.CFG
 arbitraryCFG = CFG.CFG
-    <$> arbitrarySet unaryMax arbitraryUnary
-    <*> arbitrarySet binaryMax arbitraryBinary
+    <$> arbitrarySet ruleMax arbitraryUnary
+    <*> arbitrarySet ruleMax arbitraryBinary
     <*> pure (S.fromList $ map N [1..nMax])
     <*> pure (S.fromList $ map T [1..tMax])
     <*> arbitrarySet (fromIntegral nMax) (N <$> choose (1, nMax))
@@ -102,13 +108,17 @@ arbitraryActive :: Gen (S.Set (Pos, Pos))
 arbitraryActive = arbitrarySet activeMax arbitrarySpan
 
 arbitraryNerfD :: Gen NerfD
-arbitraryNerfD = NerfD
-    <$> arbitraryCFG
-    <*> arbitrarySent
-    <*> arbitraryActive
-    <*> arbitraryMap descMax arbitraryNode arbitraryReal
-    <*> arbitraryMap descMax arbitraryUnary arbitraryReal
-    <*> arbitraryMap descMax arbitraryBinary arbitraryReal
+arbitraryNerfD = do
+    cfg     <- arbitraryCFG
+    unaryM  <- mapFromSet (CFG.unary cfg) arbitraryReal
+    binaryM <- mapFromSet (CFG.binary cfg) arbitraryReal
+    NerfD
+        <$> pure cfg
+        <*> arbitrarySent
+        <*> arbitraryActive
+        <*> arbitraryMap ruleMax arbitraryNode arbitraryReal
+        <*> pure unaryM
+        <*> pure binaryM
 
 instance Arbitrary NerfD where
     arbitrary = arbitraryNerfD
@@ -129,11 +139,16 @@ instance Arbitrary NodeNT where
         return $ NodeNT x i j
 
 propAlpha :: NerfD -> NodeNT -> Bool
-propAlpha nd (NodeNT x i j) = (~==)
-    (runNerf nd $ AF.alpha x i j)
-    (runNerf nd $ AC.alpha x i j)
+propAlpha nd (NodeNT x i j) =
+    trace (show (r1, r2)) $ r1 ~== r2
+  where
+    r1 = runNerf nd $ AF.alpha x i j
+    r2 = runNerf nd $ AC.alpha x i j
 
 main :: IO ()
 main = do
     -- sample (arbitrary :: Gen NodeNT)
-    quickCheck propAlpha
+    res <- quickCheckResult propAlpha
+    case res of
+        Success _ _ _   -> return ()
+        _               -> exitFailure

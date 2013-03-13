@@ -25,17 +25,27 @@ treeSet x i j = L.append
 -- | A set of potential 'Fork' trees spanned over the given symbol
 -- and positions.
 treeSet' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
-treeSet' (Left x) i j = do
+treeSet' n i j = lift (isActive i j) >>= \is -> if is
+    then treeSetI' n i j
+    else L.empty
+
+treeSetI' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
+treeSetI' (Left x) i j = do
     cfg <- lift nerfCFG
     u   <- L.liftList $ C.perTopU cfg x
     t   <- treeSet'' (C.down u) i j
     return $ Branch x t
-treeSet' (Right _) _ _ = L.empty
+treeSetI' (Right _) _ _ = L.empty
 
 -- | A set of potential 'Branch' and 'Leaf' trees spanned over the
 -- given symbol and positions.
 treeSet'' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
-treeSet'' (Left x) i j
+treeSet'' n i j = lift (isActive i j) >>= \is -> if is
+    then treeSetI'' n i j
+    else L.empty
+
+treeSetI'' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
+treeSetI'' (Left x) i j
     | i == j    = L.empty
     | otherwise = do
         cfg <- lift nerfCFG
@@ -44,7 +54,7 @@ treeSet'' (Left x) i j
         l   <- treeSet (C.left r) i k
         p   <- treeSet (C.right r) (k+1) j
         return $ Fork x l p
-treeSet'' (Right x) i j
+treeSetI'' (Right x) i j
     | i == j    = lift (inputHas i x) >>= \b -> if b
         then L.singleton $ Leaf x i
         else L.empty

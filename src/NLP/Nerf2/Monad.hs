@@ -11,6 +11,7 @@ module NLP.Nerf2.Monad
 -- * Active set
 , activeSet
 , isActive
+, activeCond
 -- * Input
 , inputHas
 -- * Potential
@@ -59,6 +60,11 @@ activeSet = R.asks active
 -- | Is a span active?
 isActive :: Pos -> Pos -> Nerf Bool
 isActive i j = S.member (i, j) <$> activeSet
+
+-- | Conditional execution.
+activeCond :: Pos -> Pos -> Nerf a -> Nerf a -> Nerf a
+activeCond i j n m = isActive i j >>= \is ->
+    if is then m else n
 
 -- | Potential of a tree node within the context.
 phiNode :: N -> Pos -> Pos -> Nerf LogReal

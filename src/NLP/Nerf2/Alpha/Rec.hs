@@ -20,15 +20,21 @@ alpha :: Either N T -> Pos -> Pos -> Nerf LogReal
 alpha n i j = (+) <$> alpha' n i j <*> alpha'' n i j
 
 alpha' :: Either N T -> Pos -> Pos -> Nerf LogReal
-alpha' (Left x) i j = do
+alpha' n i j = activeCond i j (return 0) $ alphaI' n i j
+
+alphaI' :: Either N T -> Pos -> Pos -> Nerf LogReal
+alphaI' (Left x) i j = do
     cfg <- nerfCFG
     (*) <$> phiNode x i j <*> foldM plus 0
         [ (*) <$> phiUnary u <*> alpha'' (C.down u) i j
         | u <- C.perTopU cfg x ]
-alpha' (Right _) _ _ = return 0
+alphaI' (Right _) _ _ = return 0
 
 alpha'' :: Either N T -> Pos -> Pos -> Nerf LogReal
-alpha'' (Left x) i j
+alpha'' n i j = activeCond i j (return 0) $ alphaI'' n i j
+
+alphaI'' :: Either N T -> Pos -> Pos -> Nerf LogReal
+alphaI'' (Left x) i j
     | i == j    = return 0
     | otherwise = do
         cfg <- nerfCFG
@@ -43,7 +49,7 @@ alpha'' (Left x) i j
                     [ lift (alpha (C.left r)  i k)
                     , lift (alpha (C.right r) (k+1) j) ]
                 return (a2 * a3)
-alpha'' (Right x) i j
+alphaI'' (Right x) i j
     | i == j    = inputHas i x >>= \b -> return $
         if b then 1 else 0
     | otherwise = return 0

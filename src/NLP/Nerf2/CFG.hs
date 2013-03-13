@@ -30,6 +30,7 @@ data CFG = CFG
     , nsyms     :: S.Set N
     , tsyms     :: S.Set T
     , start     :: S.Set N }
+    deriving (Show)
 
 -- | An unary CFG rule.
 data Unary = Unary

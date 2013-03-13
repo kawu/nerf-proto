@@ -5,6 +5,7 @@ module NLP.Nerf2.Monad
 -- * Types
   Nerf
 , NerfD (NerfD)
+, runNerf
 -- * Context free grammar
 , nerfCFG
 -- * Active set
@@ -37,10 +38,15 @@ data NerfD = NerfD
     , phiNodeM      :: M.Map (N, Pos, Pos) LogReal
     , phiUnaryM     :: M.Map C.Unary LogReal
     , phiBinaryM    :: M.Map C.Binary LogReal }
+    deriving (Show)
 
 -- | A Nerf monad.  Do we really gain anything by using the monadic
 -- interface?  I don't know, so lets make it an experiment.
 type Nerf = R.Reader NerfD
+
+-- | Run the `Nerf` monad.
+runNerf :: NerfD -> Nerf a -> a
+runNerf nd nerf = R.runReader nerf nd
 
 -- | A context free grammar.
 nerfCFG :: Nerf C.CFG

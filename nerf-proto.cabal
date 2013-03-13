@@ -44,6 +44,12 @@ library
 
     ghc-options: -Wall -O2
 
+test-suite test1
+    type:           exitcode-stdio-1.0
+    main-is:        test1.hs
+    build-depends:  QuickCheck
+    hs-source-dirs: tests src
+
 source-repository head
     type: git
     location: https://github.com/kawu/nerf-proto.git

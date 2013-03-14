@@ -5,6 +5,7 @@ import Control.Applicative ((<$>), (<*>), pure)
 import System.Exit (exitFailure)
 import Test.QuickCheck
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as U
 import qualified Data.Set as S
 import qualified Data.Map.Strict as M
 
@@ -12,6 +13,7 @@ import NLP.Nerf2.Types
 import NLP.Nerf2.Monad
 import qualified NLP.Nerf2.LogReal as L
 import qualified NLP.Nerf2.CFG as CFG
+import qualified NLP.Nerf2.Alpha as A
 import qualified NLP.Nerf2.Alpha.Ref as AF
 import qualified NLP.Nerf2.Alpha.Rec as AC
 
@@ -22,7 +24,9 @@ posMax      = 5
 tMax        = 4
 nMax        = 4
 activeMax   = 25
-ruleMax     = 25
+unaryMax    = 10
+binaryMax   = 10
+nodeMax     = 10
 phiMax      = 10.0 :: Double
 
 -- | Arbitrary set of maximum k elements.
@@ -93,15 +97,17 @@ arbitraryBinary = CFG.Binary
 -- | Arbitrary CFG.
 arbitraryCFG :: Gen CFG.CFG
 arbitraryCFG = CFG.CFG
-    <$> arbitrarySet ruleMax arbitraryUnary
-    <*> arbitrarySet ruleMax arbitraryBinary
+    <$> arbitrarySet unaryMax arbitraryUnary
+    <*> arbitrarySet binaryMax arbitraryBinary
     <*> pure (S.fromList $ map N [0..nMax-1])
     <*> pure (S.fromList $ map T [0..tMax-1])
     <*> arbitrarySet (fromIntegral nMax) (N <$> choose (0, nMax-1))
 
 -- | Arbitrary sentence of terminal symbols.
-arbitrarySent :: Gen (V.Vector T)
-arbitrarySent = V.fromList <$> vectorOf posMax arbitraryT
+arbitrarySent :: Gen Sent
+arbitrarySent =
+    let seg = (,) <$> arbitraryT <*> pure U.empty
+    in  V.fromList <$> vectorOf posMax seg
 
 -- | Arbitrary set of active ranges.
 arbitraryActive :: Gen (S.Set (Pos, Pos))
@@ -116,7 +122,7 @@ arbitraryNerfD = do
         <$> pure cfg
         <*> arbitrarySent
         <*> arbitraryActive
-        <*> arbitraryMap ruleMax arbitraryNode arbitraryReal
+        <*> arbitraryMap nodeMax arbitraryNode arbitraryReal
         <*> pure unaryM
         <*> pure binaryM
 
@@ -130,24 +136,25 @@ x ~== y =
     z = x / y
     eps = 1.0e-10
 
-data NodeNT = NodeNT (Either N T) Pos Pos deriving Show
+data NodeN = NodeN N Pos Pos deriving Show
 
-instance Arbitrary NodeNT where
+instance Arbitrary NodeN where
     arbitrary = do
         (i, j) <- arbitrarySpan
-        x <- arbitraryNT
-        return $ NodeNT x i j
+        x <- arbitraryN
+        return $ NodeN x i j
 
-propAlpha :: NerfD -> NodeNT -> Bool
-propAlpha nd (NodeNT x i j) =
-    trace (show (r1, r2)) $ r1 ~== r2
+propAlpha :: NerfD -> NodeN -> Bool
+propAlpha nd (NodeN x i j) =
+    trace (show (r0, r1, r2)) $ r0 ~== r1 && r1 ~== r2
   where
-    r1 = runNerf nd $ AF.alpha x i j
-    r2 = runNerf nd $ AC.alpha x i j
+    r0 = runNerf nd $ A.alphaAt x i j
+    r1 = runNerf nd $ AF.alpha (Left x) i j
+    r2 = runNerf nd $ AC.alpha (Left x) i j
 
 main :: IO ()
 main = do
-    -- sample (arbitrary :: Gen NodeNT)
+    -- sample (arbitrary :: Gen NodeN)
     res <- quickCheckResult propAlpha
     case res of
         Success _ _ _   -> return ()

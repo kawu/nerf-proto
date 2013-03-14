@@ -1,14 +1,19 @@
 module NLP.Nerf2.Alpha
 ( Alpha
+, alphaAt
 , AVal (..)
+, at
+, atF
+, atB
 , computeAlpha
 ) where
 
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (foldM, forM_, guard, when, void)
+import Control.Monad (foldM, forM_, guard, void)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import qualified Data.Vector.Unboxed.Mutable as UM
+import qualified Data.Set as S
 import qualified Data.Map.Strict as M
 
 import Control.Monad.ST (ST, runST)
@@ -47,6 +52,14 @@ avZero = AVal <$> rvZero <*> rvZero
 
 type Alpha = M.Map Span AVal
 
+-- | For testing purposes.
+alphaAt :: N -> Pos -> Pos -> Nerf LogReal
+alphaAt x i j = do
+    alp <- computeAlpha
+    return $ case M.lookup (i, j) alp of
+        Nothing -> 0
+        Just av -> av `at` x
+
 computeAlpha :: Nerf Alpha
 computeAlpha = do
     act <- activeSet
@@ -69,7 +82,8 @@ alpha m i j = activeCond i j avZero $ do
 alphaI' :: RVect -> Pos -> Pos -> Nerf RVect
 alphaI' a'' i j = do
     lbNum   <- labelNum
-    phiS    <- (M.! (i,j)) <$> phiNodeMap
+    -- phiS    <- (M.! (i,j)) <$> phiNodeMap
+    phiS    <- look "A" (i,j) <$> phiNodeMap
     unaN    <- unaryN
     unaT    <- unaryT
     sent    <- input
@@ -78,15 +92,14 @@ alphaI' a'' i j = do
       -- Initial vector
       v <- UM.replicate lbNum 0
 
-      -- N->N rules
-      forM_ (V.toList unaN) $ \(x, y, phi) -> do
-        unsafeAddN v x $ phi * (a'' U.! unN y)
-
-      -- N->T rules
-      when (i == j) $ do
-        let xs = V.toList $ unaT (wordAt i)
-        forM_ xs $ \(x, phi) -> do
-          unsafeAddN v x phi
+      if (i == j)
+        then do -- N->T rules
+          let xs = V.toList $ unaT (wordAt i)
+          forM_ xs $ \(x, phi) -> do
+            unsafeAdd v x phi
+        else do -- N->N rules
+          forM_ (V.toList unaN) $ \(x, y, phi) -> do
+            unsafeAdd v x $ phi * (a'' U.! unN y)
       
       -- Update with respect to phiNode values
       mulByV v phiS
@@ -101,7 +114,8 @@ alphaI'' alphaMap i j
         act     <- activeSet
         lbNum   <- labelNum
 
-        phiS    <- (M.! (i,j)) <$> phiNodeMap
+        -- phiS    <- (M.! (i,j)) <$> phiNodeMap
+        phiS    <- look "B" (i,j) <$> phiNodeMap
         binNN   <- binaryNN
         binNT   <- binaryNT
         binTN   <- binaryTN
@@ -116,31 +130,37 @@ alphaI'' alphaMap i j
 
           -- N->NN rules
           forM_ (A.divTop' act i j) $ \k -> do
-            let lAV = alphaMap M.! (i, k)
-            let rAV = alphaMap M.! (k+1, j)
+            -- let lAV = alphaMap M.! (i, k)
+            let lAV = look "C" (i, k) alphaMap
+            -- let rAV = alphaMap M.! (k+1, j)
+            let rAV = look "D" (k+1, j) alphaMap
             forM_ (V.toList binNN) $ \(y, x, z, phi) -> do
-              unsafeAddN v x $ (lAV `at` y) * phi * (rAV `at` z)
+              unsafeAdd v x $ (lAV `at` y) * phi * (rAV `at` z)
 
           -- N->TN rules
           void $ runMaybeT $ do
+            guard $ S.member (i, i) act
             rAV <- liftMaybe $ M.lookup (i+1, j) alphaMap
             let xs = V.toList . binTN $ wordAt i
             lift $ forM_ xs $ \(x, z, phi) -> do
-              unsafeAddN v x $ phi * (rAV `at` z)
+              unsafeAdd v x $ phi * (rAV `at` z)
 
           -- N->NT rules
           void $ runMaybeT $ do
+            guard $ S.member (j, j) act
             lAV <- liftMaybe $ M.lookup (i, j-1) alphaMap
             let xs = V.toList . binNT $ wordAt j
             lift $ forM_ xs $ \(y, x, phi) -> do
-              unsafeAddN v x $ (lAV `at` y) * phi
+              unsafeAdd v x $ (lAV `at` y) * phi
 
           -- N->TT rules
           void $ runMaybeT $ do
             guard $ j == i + 1
+            guard $ S.member (i, i) act
+            guard $ S.member (j, j) act
             let xs = V.toList $ binTT (wordAt i) (wordAt j)
             lift $ forM_ xs $ \(x, phi) -> do
-              unsafeAddN v x phi
+              unsafeAdd v x phi
 
           -- Update with respect to phiNode values
           mulByV v phiS
@@ -153,19 +173,27 @@ mulByV :: (Num a, U.Unbox a) => UM.MVector s a -> U.Vector a -> ST s ()
 mulByV v w = do
     let n = min (UM.length v) (U.length w)
     forM_ [0..n-1] $ \i -> do
-        unsafeAdd v i (w U.! i)
+        unsafeMul v i (w U.! i)
 {-# INLINE mulByV #-}
 
-unsafeAddN :: (Num a, U.Unbox a) => UM.MVector s a -> N -> a -> ST s ()
-unsafeAddN v (N i) = unsafeAdd v i
-{-# INLINE unsafeAddN #-}
-
 -- | TODO: Make it really unsafe.
-unsafeAdd :: (Num a, U.Unbox a) => UM.MVector s a -> Int -> a -> ST s ()
-unsafeAdd v i y = do
+unsafeAdd :: (Num a, U.Unbox a) => UM.MVector s a -> N -> a -> ST s ()
+unsafeAdd v (N i) y = do
     x <- UM.read v i
     UM.write v i (x + y)
 {-# INLINE unsafeAdd #-}
 
+-- | TODO: Make it really unsafe.
+unsafeMul :: (Num a, U.Unbox a) => UM.MVector s a -> Int -> a -> ST s ()
+unsafeMul v i y = do
+    x <- UM.read v i
+    UM.write v i (x * y)
+{-# INLINE unsafeMul #-}
+
 liftMaybe :: (Monad m) => Maybe a -> MaybeT m a
 liftMaybe = MaybeT . return
+
+look :: Ord a => String -> a -> M.Map a b -> b
+look err k m = case M.lookup k m of
+    Nothing -> error $ "look: " ++ err
+    Just v  -> v

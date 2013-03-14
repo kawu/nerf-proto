@@ -10,6 +10,8 @@ module NLP.Nerf2.Active
 
 import Control.Monad (guard)
 import Control.Monad.Trans.Class (lift)
+import Data.List (sortBy)
+import Data.Ord (comparing)
 import qualified Data.Set as S
 
 import NLP.Nerf2.Types
@@ -17,8 +19,11 @@ import NLP.Nerf2.Monad
 import qualified NLP.Nerf2.ListT as L
 
 -- | List all active spans in order of increasing sizes.
+-- TODO: This function is a stub.
 listInc :: Active -> [Span]
-listInc = undefined
+listInc =
+    let size (i, j) = j - i
+    in  sortBy (comparing size) . S.toList
 
 -- | List all active spans in order of decreasing sizes.
 listDec :: Active -> [Span]

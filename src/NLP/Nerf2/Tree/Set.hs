@@ -22,7 +22,7 @@ treeSet x i j = L.append
     (treeSet' x i j)
     (treeSet'' x i j)
 
--- | A set of potential 'Fork' trees spanned over the given symbol
+-- | A set of potential 'Branch' trees spanned over the given symbol
 -- and positions.
 treeSet' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
 treeSet' n i j = lift (isActive i j) >>= \is -> if is
@@ -37,7 +37,7 @@ treeSetI' (Left x) i j = do
     return $ Branch x t
 treeSetI' (Right _) _ _ = L.empty
 
--- | A set of potential 'Branch' and 'Leaf' trees spanned over the
+-- | A set of potential 'Fork' and 'Leaf' trees spanned over the
 -- given symbol and positions.
 treeSet'' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
 treeSet'' n i j = lift (isActive i j) >>= \is -> if is

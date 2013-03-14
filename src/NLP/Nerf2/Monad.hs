@@ -168,7 +168,6 @@ binaryNT :: Nerf (T -> V.Vector (N, N, LogReal))
 binaryNT = do
     rs  <- S.toList . C.binary <$> R.asks cfg
     phi <- mapM phiBinary rs
-    let onKey m k = m M.! k
     return . onKey . fmap V.fromList $ M.fromListWith (++)
         [ (right, [(left, top, p)])
         | (C.Binary top (Left left) (Right right), p) <- zip rs phi ]
@@ -178,7 +177,6 @@ binaryTN :: Nerf (T -> V.Vector (N, N, LogReal))
 binaryTN = do
     rs  <- S.toList . C.binary <$> R.asks cfg
     phi <- mapM phiBinary rs
-    let onKey m k = m M.! k
     return . onKey . fmap V.fromList $ M.fromListWith (++)
         [ (left, [(top, right, p)])
         | (C.Binary top (Right left) (Left right), p) <- zip rs phi ]
@@ -188,8 +186,7 @@ binaryTT :: Nerf (T -> T -> V.Vector (N, LogReal))
 binaryTT = do
     rs  <- S.toList . C.binary <$> R.asks cfg
     phi <- mapM phiBinary rs
-    let onKey m k0 k1 = m M.! (k0, k1)
-    return . onKey . fmap V.fromList $ M.fromListWith (++)
+    return . onKey2 . fmap V.fromList $ M.fromListWith (++)
         [ ((left, right), [(top, p)])
         | (C.Binary top (Right left) (Right right), p) <- zip rs phi ]
 
@@ -207,7 +204,16 @@ unaryT :: Nerf (T -> V.Vector (N, LogReal))
 unaryT = do
     us  <- S.toList . C.unary <$> R.asks cfg
     phi <- mapM phiUnary us
-    let onKey m k = m M.! k
     return . onKey . fmap V.fromList $ M.fromListWith (++)
         [ (down, [(top, p)])
         | (C.Unary top (Right down), p) <- zip us phi ]
+
+onKey :: Ord k => M.Map k (V.Vector b) -> k -> V.Vector b
+onKey m k = case M.lookup k m of
+    Just v  -> v
+    Nothing -> V.empty
+
+onKey2 :: (Ord a, Ord b) => M.Map (a, b) (V.Vector c) -> a -> b -> V.Vector c
+onKey2 m k0 k1 = case M.lookup (k0, k1) m of
+    Just v  -> v
+    Nothing -> V.empty

@@ -1,3 +1,6 @@
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RecordWildCards #-}
+
 -- | An internal, monadic interface.
 
 module NLP.Nerf2.Monad
@@ -26,6 +29,10 @@ module NLP.Nerf2.Monad
 
 -- * Experimental
 , phiNodeMap
+-- ** Unary rules
+, unaryN
+, unaryT
+-- ** Binary rules
 , binaryNN
 , binaryNT
 , binaryTN
@@ -63,7 +70,7 @@ runNerf :: NerfD -> Nerf a -> a
 runNerf nd nerf = R.runReader nerf nd
 
 labelVect :: Nerf (U.Vector N)
-labelVect = undefined
+labelVect = U.fromList . S.toList . C.nsyms <$> R.asks cfg
 
 labelNum :: Nerf Int
 labelNum = U.length <$> labelVect
@@ -132,25 +139,75 @@ input = R.asks sent
 --
 -- For now, we just assume that appropriate constructions have appropriate
 -- values, regardless of how they are computed. 
+--
+-- TODO: Optimize experimental function.  We would like an iteration over
+-- vectors to be as fast as possible.
 ----------------------------------------------------------------------------
 
 phiNodeMap :: Nerf (M.Map (Pos, Pos) RVect)
-phiNodeMap = undefined
+phiNodeMap = do
+    act <- S.toList <$> activeSet
+    phi <- mapM phiSpan act
+    return . M.fromList $ zip act phi
+  where
+    phiSpan (i, j) = do
+        xs <- labels
+        U.fromList <$> sequence [phiNode x i j | x <- xs]
 
 -- | A set of (left, top, right, binary rule potential) tuples.
--- TODO: Optimize; we would iteration over this vector as fast
--- as possible.
 binaryNN :: Nerf (V.Vector (N, N, N, LogReal))
-binaryNN = undefined
+binaryNN = do
+    rs  <- S.toList . C.binary <$> R.asks cfg
+    phi <- mapM phiBinary rs
+    return $ V.fromList
+        [ (left, top, right, p)
+        | (C.Binary top (Left left) (Left right), p) <- zip rs phi ]
 
 -- | A set of (left, top, potential) tuples for a given terminal.
 binaryNT :: Nerf (T -> V.Vector (N, N, LogReal))
-binaryNT = undefined
+binaryNT = do
+    rs  <- S.toList . C.binary <$> R.asks cfg
+    phi <- mapM phiBinary rs
+    let onKey m k = m M.! k
+    return . onKey . fmap V.fromList $ M.fromListWith (++)
+        [ (right, [(left, top, p)])
+        | (C.Binary top (Left left) (Right right), p) <- zip rs phi ]
 
 -- | A set of (top, right, potential) tuples for a given terminal.
 binaryTN :: Nerf (T -> V.Vector (N, N, LogReal))
-binaryTN = undefined
+binaryTN = do
+    rs  <- S.toList . C.binary <$> R.asks cfg
+    phi <- mapM phiBinary rs
+    let onKey m k = m M.! k
+    return . onKey . fmap V.fromList $ M.fromListWith (++)
+        [ (left, [(top, right, p)])
+        | (C.Binary top (Right left) (Left right), p) <- zip rs phi ]
 
 -- | A set of (top, potential) tuples for a given left and right terminals.
 binaryTT :: Nerf (T -> T -> V.Vector (N, LogReal))
-binaryTT = undefined
+binaryTT = do
+    rs  <- S.toList . C.binary <$> R.asks cfg
+    phi <- mapM phiBinary rs
+    let onKey m k0 k1 = m M.! (k0, k1)
+    return . onKey . fmap V.fromList $ M.fromListWith (++)
+        [ ((left, right), [(top, p)])
+        | (C.Binary top (Right left) (Right right), p) <- zip rs phi ]
+
+-- | A set of (top, down, unary potential) tuples.
+unaryN :: Nerf (V.Vector (N, N, LogReal))
+unaryN = do
+    us  <- S.toList . C.unary <$> R.asks cfg
+    phi <- mapM phiUnary us
+    return $ V.fromList
+        [ (top, down, p)
+        | (C.Unary top (Left down), p) <- zip us phi ]
+
+-- | A set of (top, unary potential) tuples for a given down terminal.
+unaryT :: Nerf (T -> V.Vector (N, LogReal))
+unaryT = do
+    us  <- S.toList . C.unary <$> R.asks cfg
+    phi <- mapM phiUnary us
+    let onKey m k = m M.! k
+    return . onKey . fmap V.fromList $ M.fromListWith (++)
+        [ (down, [(top, p)])
+        | (C.Unary top (Right down), p) <- zip us phi ]

@@ -7,10 +7,10 @@ import Test.QuickCheck
 import qualified Data.Vector as V
 import qualified Data.Set as S
 import qualified Data.Map.Strict as M
-import qualified Data.Number.LogFloat as L
 
 import NLP.Nerf2.Types
 import NLP.Nerf2.Monad
+import qualified NLP.Nerf2.LogReal as L
 import qualified NLP.Nerf2.CFG as CFG
 import qualified NLP.Nerf2.Alpha.Ref as AF
 import qualified NLP.Nerf2.Alpha.Rec as AC
@@ -43,7 +43,7 @@ mapFromSet s g = do
     return $ M.fromList (zip xs ys)
 
 arbitraryPos :: Gen Pos
-arbitraryPos = choose (1, posMax)
+arbitraryPos = choose (0, posMax-1)
 
 arbitrarySpan :: Gen (Pos, Pos)
 arbitrarySpan =
@@ -51,15 +51,15 @@ arbitrarySpan =
     in  pair `suchThat` \(i, j) -> i <= j
 
 arbitraryReal :: Gen LogReal
-arbitraryReal = L.logToLogFloat <$> choose (-phiMax, phiMax)
+arbitraryReal = L.logToLogReal <$> choose (-phiMax, phiMax)
 
 -- | Arbitrary terminal.
 arbitraryT :: Gen T 
-arbitraryT = T <$> choose (1, tMax)
+arbitraryT = T <$> choose (0, tMax-1)
 
 -- | Arbitrary nonterminal.
 arbitraryN :: Gen N 
-arbitraryN = N <$> choose (1, nMax)
+arbitraryN = N <$> choose (0, nMax-1)
 
 arbitraryEither :: Gen a -> Gen b -> Gen (Either a b)
 arbitraryEither g g' = arbitrary >>= \b -> case b of
@@ -95,9 +95,9 @@ arbitraryCFG :: Gen CFG.CFG
 arbitraryCFG = CFG.CFG
     <$> arbitrarySet ruleMax arbitraryUnary
     <*> arbitrarySet ruleMax arbitraryBinary
-    <*> pure (S.fromList $ map N [1..nMax])
-    <*> pure (S.fromList $ map T [1..tMax])
-    <*> arbitrarySet (fromIntegral nMax) (N <$> choose (1, nMax))
+    <*> pure (S.fromList $ map N [0..nMax-1])
+    <*> pure (S.fromList $ map T [0..tMax-1])
+    <*> arbitrarySet (fromIntegral nMax) (N <$> choose (0, nMax-1))
 
 -- | Arbitrary sentence of terminal symbols.
 arbitrarySent :: Gen (V.Vector T)

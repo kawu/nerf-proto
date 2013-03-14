@@ -23,7 +23,6 @@ library
       , vector
       , binary
       , vector-binary >= 0.1 && < 0.2
-      , logfloat
       , mtl
       , transformers
 
@@ -31,16 +30,17 @@ library
         NLP.Nerf2.Types
       , NLP.Nerf2.CFG
       , NLP.Nerf2.Active
-      , NLP.Nerf2.SpanDiv
       , NLP.Nerf2.Tree
       , NLP.Nerf2.Tree.Set
       , NLP.Nerf2.Tree.Prob
       , NLP.Nerf2.Tree.Phi
+      , NLP.Nerf2.Alpha
 
     other-modules:
         NLP.Nerf2.ListT
       , NLP.Nerf2.Alpha.Ref
       , NLP.Nerf2.Alpha.Rec
+      , NLP.Nerf2.LogReal
 
     ghc-options: -Wall -O2
 

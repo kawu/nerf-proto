@@ -12,7 +12,7 @@ import Control.Monad.Trans.Class (lift)
 
 import NLP.Nerf2.Types
 import NLP.Nerf2.Monad
-import NLP.Nerf2.SpanDiv
+import NLP.Nerf2.Active
 import qualified NLP.Nerf2.CFG as C
 import qualified NLP.Nerf2.ListT as L
 

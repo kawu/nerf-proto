@@ -2,13 +2,44 @@
 
 module NLP.Nerf2.Active
 ( Active
+, listInc
+, listDec
+, divTop
+, divTop'
 ) where
 
+import Control.Monad (guard)
+import Control.Monad.Trans.Class (lift)
 import qualified Data.Set as S
 
-import NLP.Nerf2.Types (Pos)
+import NLP.Nerf2.Types
+import NLP.Nerf2.Monad
+import qualified NLP.Nerf2.ListT as L
 
--- | A set of active range values.  For each (i, j) span,
--- which is not in the active set, the set of potential
--- trees is set to be empty.
-type Active = S.Set (Pos, Pos)
+-- | List all active spans in order of increasing sizes.
+listInc :: Active -> [Span]
+listInc = undefined
+
+-- | List all active spans in order of decreasing sizes.
+listDec :: Active -> [Span]
+listDec = undefined
+
+-- | A set of possible divisions of the (i, j) span into two
+-- neighboring (i, k) and (k+1, j) active spans.
+-- The result is returned in the ascending order.
+divTop :: Pos -> Pos -> L.ListT Nerf Pos
+divTop i j = do
+    k <- L.liftList [i .. j - 1]
+    guard =<< lift (isActive i k)
+    guard =<< lift (isActive (k+1) j)
+    return k
+
+-- | A set of possible divisions of the (i, j) span into two
+-- neighboring (i, k) and (k+1, j) active spans.
+-- The result is returned in the ascending order.
+-- Pure version.
+divTop' :: Active -> Pos -> Pos -> [Pos]
+divTop' active i j =
+    [ k | k <- [i .. j - 1]
+    , S.member (i, k) active
+    , S.member (k+1, j) active ]

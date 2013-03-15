@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module NLP.Nerf2.Alpha
 ( Alpha
 , alphaAt
@@ -19,10 +21,12 @@ import qualified Data.Map.Strict as M
 import Control.Monad.ST (ST, runST)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Maybe (MaybeT(..))
+import qualified Control.Monad.Reader as R
 -- import qualified Control.Monad.ST as ST
 
 import NLP.Nerf2.Types
 import NLP.Nerf2.Monad
+import qualified NLP.Nerf2.Env as Env
 import qualified NLP.Nerf2.Active as A
 
 -- | An alpha value.
@@ -44,7 +48,9 @@ atB (AVal _ w) (N x) = w U.! x
 
 -- | An `RVect` with 0 values.
 rvZero :: Nerf RVect
-rvZero = flip U.replicate 0 <$> labelNum
+rvZero = do
+    lbNum <- Env.labelNum <$> R.asks Env.mainEnv
+    return $ U.replicate lbNum 0
 
 -- | An `AVal` with 0 values.
 avZero :: Nerf AVal
@@ -62,11 +68,11 @@ alphaAt x i j = do
 
 computeAlpha :: Nerf Alpha
 computeAlpha = do
-    act <- activeSet
+    Env.SentEnv{..} <- R.asks Env.sentEnv
     let update m (i, j) = do
         v <- alpha m i j
         return $ M.insert (i, j) v m
-    foldM update M.empty (A.listInc act)
+    foldM update M.empty (A.listInc activeSet)
 
 -- | A map from spans to vectors of phiNode values.
 -- type SPhi = M.Map Span RVect
@@ -81,84 +87,69 @@ alpha m i j = activeCond i j avZero $ do
 -- | Vector of alpha' values given vector of alpha'' values.
 alphaI' :: RVect -> Pos -> Pos -> Nerf RVect
 alphaI' a'' i j = do
-    lbNum   <- labelNum
-    -- phiS    <- (M.! (i,j)) <$> phiNodeMap
-    phiS    <- look "A" (i,j) <$> phiNodeMap
-    unaN    <- unaryN
-    unaT    <- unaryT
-    sent    <- input
-    let wordAt k = fst (sent V.! k)
+    lbNum   <- Env.labelNum <$> R.asks Env.mainEnv
+    Env.ParaEnv{..} <- R.asks Env.paraEnv
+    Env.SentEnv{..} <- R.asks Env.sentEnv
+    let wordAt k    = fst (input V.! k)
+        phiS        = phiNodeMap M.! (i, j)
     return $ runST $ do
-      -- Initial vector
-      v <- UM.replicate lbNum 0
-
-      if (i == j)
-        then do -- N->T rules
-          let xs = V.toList $ unaT (wordAt i)
-          forM_ xs $ \(x, phi) -> do
-            unsafeAdd v x phi
-        else do -- N->N rules
-          forM_ (V.toList unaN) $ \(x, y, phi) -> do
-            unsafeAdd v x $ phi * (a'' U.! unN y)
-      
-      -- Update with respect to phiNode values
-      mulByV v phiS
-
-      U.unsafeFreeze v
+        -- Initial vector
+        v <- UM.replicate lbNum 0
+        if (i == j)
+            then do -- N->T rules
+                let xs = V.toList $ unaryT (wordAt i)
+                forM_ xs $ \(x, phi) -> do
+                    unsafeAdd v x phi
+            else do -- N->N rules
+                forM_ (V.toList unaryN) $ \(x, y, phi) -> do
+                    unsafeAdd v x $ phi * (a'' U.! unN y)
+        -- Update with respect to phiNode values
+        mulByV v phiS
+        U.unsafeFreeze v
 
 -- | Vector of alpha'' values.
 alphaI'' :: Alpha -> Pos -> Pos -> Nerf RVect
 alphaI'' alphaMap i j
     | i == j    = rvZero
     | otherwise = do
-        act     <- activeSet
-        lbNum   <- labelNum
-
-        -- phiS    <- (M.! (i,j)) <$> phiNodeMap
-        phiS    <- look "B" (i,j) <$> phiNodeMap
-        binNN   <- binaryNN
-        binNT   <- binaryNT
-        binTN   <- binaryTN
-        binTT   <- binaryTT
-
-        sent    <- input
-        let wordAt k = fst (sent V.! k)
-        
+        lbNum           <- Env.labelNum <$> R.asks Env.mainEnv
+        Env.ParaEnv{..} <- R.asks Env.paraEnv
+        Env.SentEnv{..} <- R.asks Env.sentEnv
+        let wordAt k    = fst (input V.! k)
+            phiS        = phiNodeMap M.! (i, j)
         return $ runST $ do
           -- Initial vector
           v <- UM.replicate lbNum 0
 
           -- N->NN rules
-          forM_ (A.divTop' act i j) $ \k -> do
-            -- let lAV = alphaMap M.! (i, k)
-            let lAV = look "C" (i, k) alphaMap
-            -- let rAV = alphaMap M.! (k+1, j)
-            let rAV = look "D" (k+1, j) alphaMap
-            forM_ (V.toList binNN) $ \(y, x, z, phi) -> do
+          forM_ (A.divTop' activeSet i j) $ \k -> do
+            let lAV = alphaMap M.! (i, k)
+            let rAV = alphaMap M.! (k+1, j)
+            forM_ (V.toList binaryNN) $ \(y, x, z, phi) -> do
               unsafeAdd v x $ (lAV `at` y) * phi * (rAV `at` z)
 
           -- N->TN rules
           void $ runMaybeT $ do
-            guard $ S.member (i, i) act
+            guard $ S.member (i, i) activeSet
             rAV <- liftMaybe $ M.lookup (i+1, j) alphaMap
-            let xs = V.toList . binTN $ wordAt i
+            let xs = V.toList . binaryTN $ wordAt i
             lift $ forM_ xs $ \(x, z, phi) -> do
               unsafeAdd v x $ phi * (rAV `at` z)
 
           -- N->NT rules
           void $ runMaybeT $ do
-            guard $ S.member (j, j) act
+            guard $ S.member (j, j) activeSet
             lAV <- liftMaybe $ M.lookup (i, j-1) alphaMap
-            let xs = V.toList . binNT $ wordAt j
+            let xs = V.toList . binaryNT $ wordAt j
             lift $ forM_ xs $ \(y, x, phi) -> do
               unsafeAdd v x $ (lAV `at` y) * phi
 
           -- N->TT rules
           void $ runMaybeT $ do
             guard $ j == i + 1
-            guard $ S.member (i, i) act
-            guard $ S.member (j, j) act
-            let xs = V.toList $ binTT (wordAt i) (wordAt j)
+            guard $ S.member (i, i) activeSet
+            guard $ S.member (j, j) activeSet
+            let xs = V.toList $ binaryTT (wordAt i) (wordAt j)
             lift $ forM_ xs $ \(x, phi) -> do
               unsafeAdd v x phi
 
@@ -193,7 +184,7 @@ unsafeMul v i y = do
 liftMaybe :: (Monad m) => Maybe a -> MaybeT m a
 liftMaybe = MaybeT . return
 
-look :: Ord a => String -> a -> M.Map a b -> b
-look err k m = case M.lookup k m of
-    Nothing -> error $ "look: " ++ err
-    Just v  -> v
+-- look :: Ord a => String -> a -> M.Map a b -> b
+-- look err k m = case M.lookup k m of
+--     Nothing -> error $ "look: " ++ err
+--     Just v  -> v

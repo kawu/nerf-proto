@@ -13,6 +13,7 @@ import NLP.Nerf2.Types
 import NLP.Nerf2.Monad
 import qualified NLP.Nerf2.LogReal as L
 import qualified NLP.Nerf2.CFG as CFG
+import qualified NLP.Nerf2.Env as Env
 import qualified NLP.Nerf2.Alpha as A
 import qualified NLP.Nerf2.Alpha.Ref as AF
 import qualified NLP.Nerf2.Alpha.Rec as AC
@@ -103,7 +104,7 @@ arbitraryCFG = CFG.CFG
     <*> pure (S.fromList $ map T [0..tMax-1])
     <*> arbitrarySet (fromIntegral nMax) (N <$> choose (0, nMax-1))
 
--- | Arbitrary sentence of terminal symbols.
+-- | Arbitrary sentence.
 arbitrarySent :: Gen Sent
 arbitrarySent =
     let seg = (,) <$> arbitraryT <*> pure U.empty
@@ -113,21 +114,31 @@ arbitrarySent =
 arbitraryActive :: Gen (S.Set (Pos, Pos))
 arbitraryActive = arbitrarySet activeMax arbitrarySpan
 
-arbitraryNerfD :: Gen NerfD
-arbitraryNerfD = do
-    cfg     <- arbitraryCFG
+-- | Arbitrary parameter environment.
+arbitraryParaEnv :: CFG.CFG -> Gen Env.ParaEnv
+arbitraryParaEnv cfg = do
+    nodeM   <- arbitraryMap nodeMax arbitraryNode arbitraryReal
     unaryM  <- mapFromSet (CFG.unary cfg) arbitraryReal
     binaryM <- mapFromSet (CFG.binary cfg) arbitraryReal
-    NerfD
-        <$> pure cfg
-        <*> arbitrarySent
-        <*> arbitraryActive
-        <*> arbitraryMap nodeMax arbitraryNode arbitraryReal
-        <*> pure unaryM
-        <*> pure binaryM
+    return $ Env.mkParaEnv nodeM unaryM binaryM
 
-instance Arbitrary NerfD where
-    arbitrary = arbitraryNerfD
+-- | Arbitrary sentence environment.
+arbitrarySentEnv :: Env.Layer1 -> Gen Env.SentEnv
+arbitrarySentEnv paraEnv = Env.mkSentEnv paraEnv
+    <$> arbitrarySent
+    <*> arbitraryActive
+
+-- | Arbitrary layer2.
+arbitraryLayer2 :: Gen Env.Layer2
+arbitraryLayer2 = do
+    cfg     <- arbitraryCFG
+    let mainEnv = Env.MainEnv cfg
+    paraEnv <- arbitraryParaEnv cfg
+    sentEnv <- arbitrarySentEnv (Env.Layer1 mainEnv paraEnv)
+    return $ Env.Layer2 mainEnv paraEnv sentEnv
+
+instance Arbitrary Env.Layer2 where
+    arbitrary = arbitraryLayer2
 
 (~==) :: LogReal -> LogReal -> Bool
 x ~== y = 
@@ -144,13 +155,13 @@ instance Arbitrary NodeN where
         x <- arbitraryN
         return $ NodeN x i j
 
-propAlpha :: NerfD -> NodeN -> Bool
-propAlpha nd (NodeN x i j) =
+propAlpha :: Env.Layer2 -> NodeN -> Bool
+propAlpha env (NodeN x i j) =
     trace (show (r0, r1, r2)) $ r0 ~== r1 && r1 ~== r2
   where
-    r0 = runNerf nd $ A.alphaAt x i j
-    r1 = runNerf nd $ AF.alpha (Left x) i j
-    r2 = runNerf nd $ AC.alpha (Left x) i j
+    r0 = runNerf env $ A.alphaAt x i j
+    r1 = AF.alpha env (Left x) i j
+    r2 = AC.alpha env (Left x) i j
 
 main :: IO ()
 main = do

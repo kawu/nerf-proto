@@ -6,27 +6,24 @@ module NLP.Nerf2.Alpha.Ref
 , alpha''
 ) where
 
+import Data.List (foldl')
+import qualified Control.Monad.Reader as R
+
 import NLP.Nerf2.Types
 import NLP.Nerf2.Monad
 import NLP.Nerf2.Tree
 import NLP.Nerf2.Tree.Set
 import NLP.Nerf2.Tree.Phi
-import qualified NLP.Nerf2.ListT as L
+import qualified NLP.Nerf2.Env as Env
 
-alpha :: Either N T -> Pos -> Pos -> Nerf LogReal
-alpha x i j = sumTrees $ treeSet x i j
+alpha :: Env.InSent e => e -> Either N T -> Pos -> Pos -> LogReal
+alpha env x i j =  sumTrees env $ treeSet env x i j
 
-alpha' :: Either N T -> Pos -> Pos -> Nerf LogReal
-alpha' x i j = sumTrees $ treeSet' x i j
+alpha' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> LogReal
+alpha' env x i j = sumTrees env $ treeSet' env x i j
 
-alpha'' :: Either N T -> Pos -> Pos -> Nerf LogReal
-alpha'' x i j = sumTrees $ treeSet'' x i j
+alpha'' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> LogReal
+alpha'' env x i j = sumTrees env $ treeSet'' env x i j
 
-sumTrees :: L.ListT Nerf Tree -> Nerf LogReal
-sumTrees =
-    L.foldListT plus (return 0)
-  where
-    plus t my = do
-        x <- phiTree t
-        y <- my
-        return $ x + y
+sumTrees :: Env.InSent e => e -> [Tree] -> LogReal
+sumTrees env = foldl' (+) 0 . map (phiTree env)

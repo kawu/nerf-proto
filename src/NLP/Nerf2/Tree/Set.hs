@@ -7,55 +7,48 @@ module NLP.Nerf2.Tree.Set
 , treeSet''
 ) where
 
-import Control.Monad.Trans.Class (lift)
-
 import NLP.Nerf2.Types
-import NLP.Nerf2.Monad
 import NLP.Nerf2.Active
 import NLP.Nerf2.Tree
 import qualified NLP.Nerf2.CFG as C
-import qualified NLP.Nerf2.ListT as L
+import qualified NLP.Nerf2.Env as Env
 
 -- | A set of potential trees spanned over the given symbol and positions.
-treeSet :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
-treeSet x i j = L.append
-    (treeSet' x i j)
-    (treeSet'' x i j)
+treeSet :: Env.InSent e => e -> Either N T -> Pos -> Pos -> [Tree]
+treeSet env x i j = treeSet' env x i j ++ treeSet'' env x i j
 
 -- | A set of potential 'Branch' trees spanned over the given symbol
 -- and positions.
-treeSet' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
-treeSet' n i j = lift (isActive i j) >>= \is -> if is
-    then treeSetI' n i j
-    else L.empty
+treeSet' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> [Tree]
+treeSet' env n i j = if Env.isActive (Env.sentEnv env) i j
+    then treeSetI' env n i j
+    else []
 
-treeSetI' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
-treeSetI' (Left x) i j = do
-    cfg <- lift nerfCFG
-    u   <- L.liftList $ C.perTopU cfg x
-    t   <- treeSet'' (C.down u) i j
-    return $ Branch x t
-treeSetI' (Right _) _ _ = L.empty
+treeSetI' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> [Tree]
+treeSetI' env (Left x) i j =
+    [ Branch x t
+    | u <- C.perTopU (Env.cfg $ Env.mainEnv env) x
+    , t <- treeSet'' env (C.down u) i j ]
+treeSetI' _ (Right _) _ _ = []
 
 -- | A set of potential 'Fork' and 'Leaf' trees spanned over the
 -- given symbol and positions.
-treeSet'' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
-treeSet'' n i j = lift (isActive i j) >>= \is -> if is
-    then treeSetI'' n i j
-    else L.empty
+treeSet'' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> [Tree]
+treeSet'' env n i j = if Env.isActive (Env.sentEnv env) i j
+    then treeSetI'' env n i j
+    else []
 
-treeSetI'' :: Either N T -> Pos -> Pos -> L.ListT Nerf Tree
-treeSetI'' (Left x) i j
-    | i == j    = L.empty
-    | otherwise = do
-        cfg <- lift nerfCFG
-        r   <- L.liftList $ C.perTopB cfg x
-        k   <- divTop i j
-        l   <- treeSet (C.left r) i k
-        p   <- treeSet (C.right r) (k+1) j
-        return $ Fork x l p
-treeSetI'' (Right x) i j
-    | i == j    = lift (inputHas i x) >>= \b -> if b
-        then L.singleton $ Leaf x i
-        else L.empty
-    | otherwise = L.empty
+treeSetI'' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> [Tree]
+treeSetI'' env (Left x) i j
+    | i == j    = []
+    | otherwise =
+        [ Fork x l p
+        | r <- C.perTopB (Env.cfg $ Env.mainEnv env) x
+        , k <- divTop' (Env.activeSet $ Env.sentEnv env) i j
+        , l <- treeSet env (C.left r) i k
+        , p <- treeSet env (C.right r) (k+1) j ]
+treeSetI'' env (Right x) i j
+    | i == j    = if Env.inputHas (Env.sentEnv env) i x
+        then [Leaf x i]
+        else []
+    | otherwise = []

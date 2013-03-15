@@ -4,31 +4,30 @@ module NLP.Nerf2.Tree.Phi
 ( phiTree
 ) where
 
-import Control.Applicative ((<$>))
-
 import NLP.Nerf2.Types
 import NLP.Nerf2.Tree
-import NLP.Nerf2.Monad
 import qualified NLP.Nerf2.CFG as CFG 
+import qualified NLP.Nerf2.Env as Env
 
 -- | A potential of a tree.
-phiTree :: Tree -> Nerf LogReal
-phiTree t = phiTreeP (posify t)
+phiTree :: Env.InSent e => e -> Tree -> LogReal
+phiTree env t = phiTreeP env (posify t)
 
 -- | A potential of a tree with positions.
-phiTreeP :: TreeP -> Nerf LogReal
-phiTreeP (ForkP x l p i j) = product <$> sequence
-    [ phiNode x i j
-    , phiBinary (CFG.Binary x (symP l) (symP p))
-    , phiTreeP l
-    , phiTreeP p ]
-phiTreeP (BranchP x t i j) = product <$> sequence
-    [ phiNode x i j
-    , phiUnary (CFG.Unary x (symP t))
-    , phiTreeP t ]
-phiTreeP (LeafP x i) =
+phiTreeP :: Env.InSent e => e -> TreeP -> LogReal
+phiTreeP env (ForkP x l p i j) = product
+    [ Env.phiNode (Env.paraEnv env) x i j
+    , Env.phiBinary (Env.paraEnv env)
+        (CFG.Binary x (symP l) (symP p))
+    , phiTreeP env l
+    , phiTreeP env p ]
+phiTreeP env (BranchP x t i j) = product
+    [ Env.phiNode (Env.paraEnv env) x i j
+    , Env.phiUnary (Env.paraEnv env) (CFG.Unary x (symP t))
+    , phiTreeP env t ]
+phiTreeP env (LeafP x i) =
     let fromBool b = if b then 1 else 0
-    in  fromBool <$> inputHas i x
+    in  fromBool $ Env.inputHas (Env.sentEnv env) i x
 
 -- | Symbol in a root.
 symP :: TreeP -> Either N T

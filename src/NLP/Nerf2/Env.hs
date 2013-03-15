@@ -44,15 +44,15 @@ data MainEnv = MainEnv
     deriving (Show)
 
 -- | A vector of nonterminals.
-labelVect :: MainEnv -> U.Vector N
-labelVect = U.fromList . S.toList . C.nsyms . cfg
+labelVect :: InMain e => e -> U.Vector N
+labelVect = U.fromList . S.toList . C.nsyms . cfg . mainEnv
 
 -- | A number of nonterminals.
-labelNum :: MainEnv -> Int
+labelNum :: InMain e => e -> Int
 labelNum = U.length . labelVect
 
 -- | A list of nonterminals.
-labels :: MainEnv -> [N]
+labels :: InMain e => e -> [N]
 labels = U.toList . labelVect
 
 -- | An environment related to parameters (i.e., when parameter values
@@ -128,16 +128,17 @@ mkParaEnv pn pu pb = ParaEnv
         Nothing -> V.empty
 
 -- | Potential of a tree node within the context.
-phiNode :: ParaEnv -> N -> Pos -> Pos -> LogReal
-phiNode pe x i j = M.findWithDefault 1 (x, i, j) (phiNodeM pe)
+phiNode :: InPara e => e -> N -> Pos -> Pos -> LogReal
+phiNode env x i j =
+    M.findWithDefault 1 (x, i, j) (phiNodeM $ paraEnv env)
 
 -- | Potential of a binary rule.
-phiBinary :: ParaEnv -> C.Binary -> LogReal
-phiBinary pe r = M.findWithDefault 1 r (phiBinaryM pe)
+phiBinary :: InPara e => e -> C.Binary -> LogReal
+phiBinary env r = M.findWithDefault 1 r (phiBinaryM $ paraEnv env)
 
 -- | Potential of an unary rule.
-phiUnary :: ParaEnv -> C.Unary -> LogReal
-phiUnary pe u = M.findWithDefault 1 u (phiUnaryM pe)
+phiUnary :: InPara e => e -> C.Unary -> LogReal
+phiUnary env u = M.findWithDefault 1 u (phiUnaryM $ paraEnv env)
 
 -- | An environment related to input sentence.
 data SentEnv = SentEnv
@@ -157,17 +158,17 @@ mkSentEnv env sent act = SentEnv
         in  M.fromList $ zip xs (map phiSpan xs)
     phiSpan (i, j) = U.fromList
         [ phiNodeEnv x i j
-        | x <- labels (mainEnv env) ]
-    phiNodeEnv = phiNode $ paraEnv env
+        | x <- labels env ]
+    phiNodeEnv = phiNode env
 
 -- | Is a given (i, j) span active?
-isActive :: SentEnv -> Pos -> Pos -> Bool
-isActive se i j = S.member (i, j) (activeSet se)
+isActive :: InSent e => e -> Pos -> Pos -> Bool
+isActive env i j = S.member (i, j) (activeSet $ sentEnv env)
 
 -- | Does the input sentence have the particular terminal
 -- on the particular position?
-inputHas :: SentEnv -> Pos -> T -> Bool
-inputHas se i x = case input se V.!? i of
+inputHas :: InSent e => e -> Pos -> T -> Bool
+inputHas env i x = case input (sentEnv env) V.!? i of
     Just (y, _) -> x == y
     Nothing     -> False
 

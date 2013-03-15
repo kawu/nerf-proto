@@ -20,7 +20,7 @@ treeSet env x i j = treeSet' env x i j ++ treeSet'' env x i j
 -- | A set of potential 'Branch' trees spanned over the given symbol
 -- and positions.
 treeSet' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> [Tree]
-treeSet' env n i j = if Env.isActive (Env.sentEnv env) i j
+treeSet' env n i j = if Env.isActive env i j
     then treeSetI' env n i j
     else []
 
@@ -34,7 +34,7 @@ treeSetI' _ (Right _) _ _ = []
 -- | A set of potential 'Fork' and 'Leaf' trees spanned over the
 -- given symbol and positions.
 treeSet'' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> [Tree]
-treeSet'' env n i j = if Env.isActive (Env.sentEnv env) i j
+treeSet'' env n i j = if Env.isActive env i j
     then treeSetI'' env n i j
     else []
 
@@ -44,11 +44,11 @@ treeSetI'' env (Left x) i j
     | otherwise =
         [ Fork x l p
         | r <- C.perTopB (Env.cfg $ Env.mainEnv env) x
-        , k <- divTop' (Env.activeSet $ Env.sentEnv env) i j
+        , k <- divTopE env i j
         , l <- treeSet env (C.left r) i k
         , p <- treeSet env (C.right r) (k+1) j ]
 treeSetI'' env (Right x) i j
-    | i == j    = if Env.inputHas (Env.sentEnv env) i x
+    | i == j    = if Env.inputHas env i x
         then [Leaf x i]
         else []
     | otherwise = []

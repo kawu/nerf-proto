@@ -49,7 +49,7 @@ atB (AVal _ w) (N x) = w U.! x
 -- | An `RVect` with 0 values.
 rvZero :: Nerf RVect
 rvZero = do
-    lbNum <- Env.labelNum <$> R.asks Env.mainEnv
+    lbNum <- Env.labelNum <$> R.ask
     return $ U.replicate lbNum 0
 
 -- | An `AVal` with 0 values.
@@ -87,7 +87,7 @@ alpha m i j = activeCond i j avZero $ do
 -- | Vector of alpha' values given vector of alpha'' values.
 alphaI' :: RVect -> Pos -> Pos -> Nerf RVect
 alphaI' a'' i j = do
-    lbNum   <- Env.labelNum <$> R.asks Env.mainEnv
+    lbNum   <- Env.labelNum <$> R.ask
     Env.ParaEnv{..} <- R.asks Env.paraEnv
     Env.SentEnv{..} <- R.asks Env.sentEnv
     let wordAt k    = fst (input V.! k)
@@ -112,7 +112,7 @@ alphaI'' :: Alpha -> Pos -> Pos -> Nerf RVect
 alphaI'' alphaMap i j
     | i == j    = rvZero
     | otherwise = do
-        lbNum           <- Env.labelNum <$> R.asks Env.mainEnv
+        lbNum           <- Env.labelNum <$> R.ask
         Env.ParaEnv{..} <- R.asks Env.paraEnv
         Env.SentEnv{..} <- R.asks Env.sentEnv
         let wordAt k    = fst (input V.! k)
@@ -122,7 +122,7 @@ alphaI'' alphaMap i j
           v <- UM.replicate lbNum 0
 
           -- N->NN rules
-          forM_ (A.divTop' activeSet i j) $ \k -> do
+          forM_ (A.divTop activeSet i j) $ \k -> do
             let lAV = alphaMap M.! (i, k)
             let rAV = alphaMap M.! (k+1, j)
             forM_ (V.toList binaryNN) $ \(y, x, z, phi) -> do

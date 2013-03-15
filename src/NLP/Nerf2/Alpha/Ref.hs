@@ -7,10 +7,8 @@ module NLP.Nerf2.Alpha.Ref
 ) where
 
 import Data.List (foldl')
-import qualified Control.Monad.Reader as R
 
 import NLP.Nerf2.Types
-import NLP.Nerf2.Monad
 import NLP.Nerf2.Tree
 import NLP.Nerf2.Tree.Set
 import NLP.Nerf2.Tree.Phi

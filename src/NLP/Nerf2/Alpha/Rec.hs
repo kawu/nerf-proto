@@ -24,7 +24,7 @@ alphaI' env (Left x) i j
     = Env.phiNode env x i j
     * sum [ Env.phiUnary env u *
             alpha'' env (C.down u) i j
-          | u <- C.perTopU (Env.cfg $ Env.mainEnv env) x ]
+          | u <- Env.perTopU env x ]
 alphaI' _ (Right _) _ _ = 0
 
 alpha'' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> LogReal
@@ -39,7 +39,7 @@ alphaI'' env (Left x) i j
         = Env.phiNode env x i j
         * sum [ phi * alpha env (C.left r)  i k
                     * alpha env (C.right r) (k+1) j
-              | r <- C.perTopB (Env.cfg $ Env.mainEnv env) x
+              | r <- Env.perTopB env x
               , let phi = Env.phiBinary env r
               , k <- divTopE env i j ]
 alphaI'' env (Right x) i j

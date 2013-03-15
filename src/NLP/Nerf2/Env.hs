@@ -28,6 +28,12 @@ module NLP.Nerf2.Env
 , Layer0 (..)
 , Layer1 (..)
 , Layer2 (..)
+-- * CFG
+, perTopU
+, perDown
+, perTopB
+, perLeft
+, perRight
 ) where
 
 import qualified Data.Set as S
@@ -219,3 +225,27 @@ instance InPara Layer2 where
 
 instance InSent Layer2 where
     sentEnv = sentEnv2
+
+----------------------------------------------------------------------
+-- Versions of CFG functions working on the typeclassed environment.
+----------------------------------------------------------------------
+
+-- | A set of unary rules with the given top symbol.
+perTopU :: InMain e => e -> N -> [C.Unary]
+perTopU = C.perTopU . cfg . mainEnv
+
+-- | A set of unary rules with the given down symbol.
+perDown :: InMain e => e -> Either N T -> [C.Unary]
+perDown = C.perDown . cfg . mainEnv
+
+-- | A set of binary rules with the given top symbol.
+perTopB :: InMain e => e -> N -> [C.Binary]
+perTopB = C.perTopB . cfg . mainEnv
+
+-- | A set of binary rules with the given left symbol.
+perLeft :: InMain e => e -> Either N T -> [C.Binary]
+perLeft = C.perLeft . cfg . mainEnv
+
+-- | A set of binary rules with the given right symbol.
+perRight :: InMain e => e -> Either N T -> [C.Binary]
+perRight = C.perRight . cfg . mainEnv

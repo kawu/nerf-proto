@@ -27,7 +27,7 @@ treeSet' env n i j = if Env.isActive env i j
 treeSetI' :: Env.InSent e => e -> Either N T -> Pos -> Pos -> [Tree]
 treeSetI' env (Left x) i j =
     [ Branch x t
-    | u <- C.perTopU (Env.cfg $ Env.mainEnv env) x
+    | u <- Env.perTopU env x
     , t <- treeSet'' env (C.down u) i j ]
 treeSetI' _ (Right _) _ _ = []
 
@@ -43,7 +43,7 @@ treeSetI'' env (Left x) i j
     | i == j    = []
     | otherwise =
         [ Fork x l p
-        | r <- C.perTopB (Env.cfg $ Env.mainEnv env) x
+        | r <- Env.perTopB env x
         , k <- divTopE env i j
         , l <- treeSet env (C.left r) i k
         , p <- treeSet env (C.right r) (k+1) j ]

@@ -14,9 +14,14 @@ import NLP.Nerf2.Monad
 import qualified NLP.Nerf2.LogReal as L
 import qualified NLP.Nerf2.CFG as CFG
 import qualified NLP.Nerf2.Env as Env
+
 import qualified NLP.Nerf2.Alpha as A
 import qualified NLP.Nerf2.Alpha.Ref as AF
 import qualified NLP.Nerf2.Alpha.Rec as AC
+
+import qualified NLP.Nerf2.Gamma as G
+import qualified NLP.Nerf2.Gamma.Ref as GF
+import qualified NLP.Nerf2.Forest.Set as F
 
 import Debug.Trace (trace)
 
@@ -28,6 +33,7 @@ activeMax   = 25
 unaryMax    = 10
 binaryMax   = 10
 nodeMax     = 10
+edgeMax     = 10
 phiMax      = 10.0 :: Double
 
 -- | Arbitrary set of maximum k elements.
@@ -95,6 +101,12 @@ arbitraryBinary = CFG.Binary
     <*> arbitraryNT
     <*> arbitraryNT
 
+-- | Arbitrary edge given a set of starting symbols.
+arbitraryEdge :: S.Set N -> Gen (N, N)
+arbitraryEdge s = (,)
+    <$> arbitraryN `suchThat` (`S.member` s)
+    <*> arbitraryN `suchThat` (`S.member` s)
+
 -- | Arbitrary CFG.
 arbitraryCFG :: Gen CFG.CFG
 arbitraryCFG = CFG.CFG
@@ -103,6 +115,7 @@ arbitraryCFG = CFG.CFG
     <*> pure (S.fromList $ map N [0..nMax-1])
     <*> pure (S.fromList $ map T [0..tMax-1])
     <*> arbitrarySet (fromIntegral nMax) (N <$> choose (0, nMax-1))
+    -- <*> pure (S.fromList $ map N [0..nMax-1])
 
 -- | Arbitrary sentence.
 arbitrarySent :: Gen Sent
@@ -120,7 +133,9 @@ arbitraryParaEnv cfg = do
     nodeM   <- arbitraryMap nodeMax arbitraryNode arbitraryReal
     unaryM  <- mapFromSet (CFG.unary cfg) arbitraryReal
     binaryM <- mapFromSet (CFG.binary cfg) arbitraryReal
-    return $ Env.mkParaEnv nodeM unaryM binaryM
+    edgeM   <- arbitraryMap edgeMax
+         (arbitraryEdge $ CFG.start cfg) arbitraryReal
+    return $ Env.mkParaEnv nodeM unaryM binaryM edgeM
 
 -- | Arbitrary sentence environment.
 arbitrarySentEnv :: Env.Layer1 -> Gen Env.SentEnv
@@ -151,22 +166,52 @@ data NodeN = NodeN N Pos Pos deriving Show
 
 instance Arbitrary NodeN where
     arbitrary = do
-        (i, j) <- arbitrarySpan
         x <- arbitraryN
+        (i, j) <- arbitrarySpan
         return $ NodeN x i j
+
+data Point = Point N Pos deriving Show
+
+instance Arbitrary Point where
+    arbitrary = do
+        x <- arbitraryN
+        i <- arbitraryPos
+        return $ Point x i
 
 propAlpha :: Env.Layer2 -> NodeN -> Bool
 propAlpha env (NodeN x i j) =
     trace (show (r0, r1, r2)) $ r0 ~== r1 && r1 ~== r2
   where
-    r0 = runNerf env $ A.alphaAt x i j
+    r0 = runNerf env $ A.alphaAtM x i j
     r1 = AF.alpha env (Left x) i j
     r2 = AC.alpha env (Left x) i j
 
+propGamma :: Env.Layer2 -> Point -> Bool
+propGamma env (Point x i) =
+    trace (show (r0, r1)) $ r0 ~== r1
+  where
+    r0 = runNerf env $ G.bsAtM x i
+    r1 = GF.gamma env x i
+
+propEmptyForest :: Env.Layer2 -> Point -> Bool
+propEmptyForest env pt@(Point x i) =
+    i < 0 || not ([] `elem` F.forestSetF env x i)
+
 main :: IO ()
 main = do
-    -- sample (arbitrary :: Gen NodeN)
-    res <- quickCheckResult propAlpha
-    case res of
+--     -- sample (arbitrary :: Gen NodeN)
+
+    r1 <- quickCheckResult propAlpha
+    case r1 of
+        Success _ _ _   -> return ()
+        _               -> exitFailure
+
+    r2 <- quickCheckResult propGamma
+    case r2 of
+        Success _ _ _   -> return ()
+        _               -> exitFailure
+
+    r3 <- quickCheckResult propEmptyForest
+    case r3 of
         Success _ _ _   -> return ()
         _               -> exitFailure

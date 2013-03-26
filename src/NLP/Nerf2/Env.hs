@@ -9,17 +9,21 @@ module NLP.Nerf2.Env
 , labelNum
 , labelVect
 , labels
+, isStart
+, begLabels
 -- * Parameters
 , ParaEnv (..)
 , mkParaEnv
 , phiNode
 , phiBinary
 , phiUnary
+, phiEdge
 -- * Sentence
 , SentEnv (..)
 , mkSentEnv
 , isActive
 , inputHas
+, inputLength
 -- * Classes
 , InMain (..)
 , InPara (..)
@@ -61,12 +65,21 @@ labelNum = U.length . labelVect
 labels :: InMain e => e -> [N]
 labels = U.toList . labelVect
 
+-- | Is given label a starting symbol?
+isStart :: InMain e => e -> N -> Bool
+isStart env x = S.member x (C.start . cfg . mainEnv $ env)
+
+-- | A list of starting symbols.
+begLabels :: InMain e => e -> [N]
+begLabels = S.toList . C.start . cfg . mainEnv
+
 -- | An environment related to parameters (i.e., when parameter values
 -- change, the `ParaEnv` environment also changes).
 data ParaEnv = ParaEnv
     { phiNodeM      :: M.Map (N, Pos, Pos) LogReal
     , phiUnaryM     :: M.Map C.Unary LogReal
     , phiBinaryM    :: M.Map C.Binary LogReal
+    , phiEdgeM      :: M.Map (N, N) LogReal
     -- | A set of (top, down, unary potential) tuples.
     , unaryN        :: V.Vector (N, N, LogReal)
     -- | A set of (top, unary potential) tuples for a given down terminal.
@@ -84,17 +97,20 @@ instance Show ParaEnv where
     show ParaEnv{..}
         =  "phiNodeM = " ++ show phiNodeM ++ "\n"
         ++ "phiUnaryM = " ++ show phiUnaryM ++ "\n"
-        ++ "phiBinaryM = " ++ show phiBinaryM
+        ++ "phiBinaryM = " ++ show phiBinaryM ++ "\n"
+        ++ "phiEdgeM = " ++ show phiEdgeM
 
 mkParaEnv
     :: M.Map (N, Pos, Pos) LogReal
     -> M.Map C.Unary LogReal
     -> M.Map C.Binary LogReal
+    -> M.Map (N, N) LogReal
     -> ParaEnv
-mkParaEnv pn pu pb = ParaEnv
+mkParaEnv pn pu pb pe = ParaEnv
     { phiNodeM      = pn
     , phiUnaryM     = pu
     , phiBinaryM    = pb
+    , phiEdgeM      = pe
     , unaryN        = unaN
     , unaryT        = unaT
     , binaryNN      = binNN
@@ -146,6 +162,10 @@ phiBinary env r = M.findWithDefault 1 r (phiBinaryM $ paraEnv env)
 phiUnary :: InPara e => e -> C.Unary -> LogReal
 phiUnary env u = M.findWithDefault 1 u (phiUnaryM $ paraEnv env)
 
+-- | Potential of an edge.
+phiEdge :: InPara e => e -> N -> N -> LogReal
+phiEdge env x y = M.findWithDefault 1 (x, y) (phiEdgeM $ paraEnv env)
+
 -- | An environment related to input sentence.
 data SentEnv = SentEnv
     { input         :: Sent
@@ -177,6 +197,10 @@ inputHas :: InSent e => e -> Pos -> T -> Bool
 inputHas env i x = case input (sentEnv env) V.!? i of
     Just (y, _) -> x == y
     Nothing     -> False
+
+-- | Length of the input.
+inputLength :: InSent e => e -> Int
+inputLength env = V.length . input $ sentEnv env
 
 -- | A class representing environments which contain the `MainEnv` environment.
 class InMain a where

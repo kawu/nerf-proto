@@ -3,6 +3,7 @@
 module NLP.Nerf2.Alpha
 ( Alpha
 , alphaAt
+, alphaAtM
 , AVal (..)
 , at
 , atF
@@ -59,10 +60,14 @@ avZero = AVal <$> rvZero <*> rvZero
 type Alpha = M.Map Span AVal
 
 -- | For testing purposes.
-alphaAt :: N -> Pos -> Pos -> Nerf LogReal
-alphaAt x i j = do
+alphaAtM :: N -> Pos -> Pos -> Nerf LogReal
+alphaAtM x i j = do
     alp <- computeAlpha
-    return $ case M.lookup (i, j) alp of
+    return $ alphaAt alp x i j
+
+alphaAt :: Alpha -> N -> Pos -> Pos -> LogReal
+alphaAt alp x i j =
+    case M.lookup (i, j) alp of
         Nothing -> 0
         Just av -> av `at` x
 

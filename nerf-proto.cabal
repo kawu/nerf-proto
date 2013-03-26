@@ -39,6 +39,8 @@ library
       , NLP.Nerf2.Alpha
       , NLP.Nerf2.Forest.Set
       , NLP.Nerf2.Forest.Phi
+      , NLP.Nerf2.Gamma
+      , NLP.Nerf2.Delta
 
     other-modules:
 --         NLP.Nerf2.ListT
@@ -46,7 +48,7 @@ library
       , NLP.Nerf2.Alpha.Ref
       , NLP.Nerf2.Alpha.Rec
       , NLP.Nerf2.Gamma.Ref
-      , NLP.Nerf2.Gamma
+      , NLP.Nerf2.Delta.Ref
 
     ghc-options: -Wall -O2
 

@@ -23,6 +23,10 @@ import qualified NLP.Nerf2.Gamma as G
 import qualified NLP.Nerf2.Gamma.Ref as GF
 import qualified NLP.Nerf2.Forest.Set as F
 
+import qualified NLP.Nerf2.Delta as D
+import qualified NLP.Nerf2.Delta.Ref as DF
+import qualified NLP.Nerf2.Forest.Set as F
+
 import Debug.Trace (trace)
 
 -- | QuickCheck parameters.
@@ -193,25 +197,27 @@ propGamma env (Point x i) =
     r0 = runNerf env $ G.bsAtM x i
     r1 = GF.gamma env x i
 
+propDelta :: Env.Layer2 -> Point -> Bool
+propDelta env (Point x i) =
+    trace (show (r0, r1)) $ r0 ~== r1
+  where
+    r0 = runNerf env $ D.bsAtM x i
+    r1 = DF.delta env x i
+
 propEmptyForest :: Env.Layer2 -> Point -> Bool
 propEmptyForest env pt@(Point x i) =
     i < 0 || not ([] `elem` F.forestSetF env x i)
 
+-- | Check property and `exitFailure` on failure.
+check :: Testable prop => prop -> IO ()
+check prop = quickCheckResult prop >>= \x -> case x of
+    Success _ _ _   -> return ()
+    _               -> exitFailure
+
 main :: IO ()
 main = do
---     -- sample (arbitrary :: Gen NodeN)
-
-    r1 <- quickCheckResult propAlpha
-    case r1 of
-        Success _ _ _   -> return ()
-        _               -> exitFailure
-
-    r2 <- quickCheckResult propGamma
-    case r2 of
-        Success _ _ _   -> return ()
-        _               -> exitFailure
-
-    r3 <- quickCheckResult propEmptyForest
-    case r3 of
-        Success _ _ _   -> return ()
-        _               -> exitFailure
+    -- sample (arbitrary :: Gen NodeN)
+    check propAlpha
+    check propGamma
+    check propDelta
+    check propEmptyForest

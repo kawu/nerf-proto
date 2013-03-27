@@ -47,6 +47,7 @@ library
       , NLP.Nerf2.Delta.Ref
 
       , NLP.Nerf2.Forest.SubTree
+      , NLP.Nerf2.Beta.Ref
 
     ghc-options: -Wall -O2
 

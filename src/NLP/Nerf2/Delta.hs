@@ -11,8 +11,10 @@ module NLP.Nerf2.Delta
 , eqAt
 , gtAt
 , computeDelta
+, norm
 -- * Testing
 , bsAtM
+, normTest
 ) where
 
 import Control.Applicative ((<$>))
@@ -108,7 +110,7 @@ deltaEq a m i = do
 deltaGt :: BsM -> Nerf GtM
 deltaGt bs = do
     env <- R.ask
-    mkSMap $ \x -> sum
+    mkSMap $ \x -> 1 + sum
         [ bs `at` y * Env.phiEdge env x y
         | y <- Env.begLabels env ]
 
@@ -118,3 +120,15 @@ bsAtM x i = do
     alpha <- A.computeAlpha
     delta <- computeDelta alpha
     return $ bsAt delta x i
+
+-- | Normalization factor.
+norm :: Delta -> Nerf LogReal
+norm delta = do
+    env <- R.ask
+    return $ 1 + sum
+        [ bsAt delta x 0
+        | x <- Env.begLabels env ]
+
+-- | Noramlization factor, testing function.
+normTest :: Nerf LogReal
+normTest = norm =<< computeDelta =<< A.computeAlpha

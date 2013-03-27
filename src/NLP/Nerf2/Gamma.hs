@@ -11,8 +11,10 @@ module NLP.Nerf2.Gamma
 , eqAt
 , lsAt
 , computeGamma
+, norm
 -- * Testing
 , bsAtM
+, normTest
 ) where
 
 import Control.Applicative ((<$>))
@@ -105,7 +107,7 @@ gammaEq a m i = do
 gammaLs :: BsM -> Nerf LsM
 gammaLs bs = do
     env <- R.ask
-    mkSMap $ \x -> sum
+    mkSMap $ \x -> 1 + sum
         [ bs `at` y * Env.phiEdge env y x
         | y <- Env.begLabels env ]
 
@@ -115,3 +117,16 @@ bsAtM x i = do
     alpha <- A.computeAlpha
     gamma <- computeGamma alpha
     return $ bsAt gamma x i
+
+-- | Normalization factor.
+norm :: Gamma -> Nerf LogReal
+norm gamma = do
+    env <- R.ask
+    let n = Env.inputLength env
+    return $ 1 + sum
+        [ bsAt gamma x (n - 1)
+        | x <- Env.begLabels env ]
+
+-- | Noramlization factor, testing function.
+normTest :: Nerf LogReal
+normTest = norm =<< computeGamma =<< A.computeAlpha

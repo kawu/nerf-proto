@@ -19,9 +19,11 @@ import qualified NLP.Nerf2.Alpha as A
 import qualified NLP.Nerf2.Alpha.Ref as AF
 import qualified NLP.Nerf2.Alpha.Rec as AC
 
+import qualified NLP.Nerf2.Forest.Set as F
+import qualified NLP.Nerf2.Forest.Phi as F
+
 import qualified NLP.Nerf2.Gamma as G
 import qualified NLP.Nerf2.Gamma.Ref as GF
-import qualified NLP.Nerf2.Forest.Set as F
 
 import qualified NLP.Nerf2.Delta as D
 import qualified NLP.Nerf2.Delta.Ref as DF
@@ -204,9 +206,44 @@ propDelta env (Point x i) =
     r0 = runNerf env $ D.bsAtM x i
     r1 = DF.delta env x i
 
-propEmptyForest :: Env.Layer2 -> Point -> Bool
-propEmptyForest env pt@(Point x i) =
-    i < 0 || not ([] `elem` F.forestSetF env x i)
+-- | A set of forests spanning the (0, i) range should include
+-- all forests spanned over the (0, i-1) range.
+propSubForest :: Env.Layer2 -> Point -> Bool
+propSubForest e (Point x i)
+    | i < 1     = True
+    | otherwise = S.fromList (F.forestSetF e x $ i - 1)
+        `S.isSubsetOf` S.fromList (F.forestSetF e x i)
+
+-- | A set of forests spanning the (i, n-1) range should include
+-- all forests spanned over the (i+1, n-1) range.
+propSubForest' :: Env.Layer2 -> Point -> Bool
+propSubForest' e (Point x i)
+    | i > Env.inputLength e - 2 = True
+    | otherwise = S.fromList (F.forestSetB e x $ i + 1)
+        `S.isSubsetOf` S.fromList (F.forestSetB e x i)
+
+-- | A set of forests must include the empty forest.
+propEmptyForest :: Env.Layer2 -> Bool
+propEmptyForest e = [] `elem` F.forestSet e
+
+-- | A set of forests is the same no matter which method
+-- is used, forward or backward computation.
+propForestSet :: Env.Layer2 -> Bool
+propForestSet e =
+    trace (show f1 ++ "    #    " ++ show f2) $ f1 == f2
+  where
+    f1 = F.forestSet e
+    f2 = F.forestSet' e
+
+-- | Normalization factor should be the same no matter which
+-- method is used, forward or backward computation.
+propNorm :: Env.Layer2 -> Bool
+propNorm env = do
+    trace (show (z0, z1, z2)) $ z0 ~== z1 && z1 ~== z2
+  where
+    z0 = F.norm env
+    z1 = runNerf env $ G.normTest
+    z2 = runNerf env $ D.normTest
 
 -- | Check property and `exitFailure` on failure.
 check :: Testable prop => prop -> IO ()
@@ -216,8 +253,11 @@ check prop = quickCheckResult prop >>= \x -> case x of
 
 main :: IO ()
 main = do
-    -- sample (arbitrary :: Gen NodeN)
-    check propAlpha
-    check propGamma
-    check propDelta
-    check propEmptyForest
+--     check propAlpha
+--     check propGamma
+--     check propDelta
+--     check propEmptyForest
+--     check propSubForest
+--     check propSubForest'
+--     check propForestSet
+    check propNorm

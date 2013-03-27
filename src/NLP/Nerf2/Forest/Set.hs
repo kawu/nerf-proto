@@ -2,10 +2,13 @@
 
 module NLP.Nerf2.Forest.Set
 ( Forest
--- | Forward.
+-- | Set of forests
+, forestSet
+, forestSet'
+-- | Forward
 , forestSetF
 , forestSetF'
--- | Backward.
+-- | Backward
 , forestSetB
 , forestSetB'
 ) where
@@ -48,9 +51,12 @@ forestSetF' e x i
 
 -- | `forestSetFA env i` is a set of forests spanned over the (0, i) range.
 forestSetFA :: Env.InSent e => e -> Pos -> [Forest]
-forestSetFA e i
-    | i < 0     = [[]]
-    | otherwise = [f | x <- Env.begLabels e, f <- forestSetF e x i]
+forestSetFA e i = [] : if i < 0 then [] else
+    [f | x <- Env.begLabels e, f <- forestSetF e x i]
+
+-- | A set of forests spanned over the entire sentence.
+forestSet :: Env.InSent e => e -> [Forest]
+forestSet e = forestSetFA e (Env.inputLength e - 1)
 
 ------------------
 -- BACKWARD
@@ -79,6 +85,10 @@ forestSetB' e x i
 
 -- | `forestSetBA env i` is a set of forests spanned over the (i, n-1) range.
 forestSetBA :: Env.InSent e => e -> Pos -> [Forest]
-forestSetBA e i
-    | i >= Env.inputLength e = [[]]
-    | otherwise = [f | x <- Env.begLabels e, f <- forestSetB e x i]
+forestSetBA e i = [] : if i >= Env.inputLength e then [] else
+    [f | x <- Env.begLabels e, f <- forestSetB e x i]
+     
+-- | A set of forests spanned over the entire sentence calculated
+-- using the backward computations.
+forestSet' :: Env.InSent e => e -> [Forest]
+forestSet' e = forestSetBA e 0

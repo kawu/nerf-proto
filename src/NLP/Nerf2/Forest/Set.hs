@@ -2,13 +2,13 @@
 
 module NLP.Nerf2.Forest.Set
 ( Forest
--- | Set of forests
+-- * Set of forests
 , forestSet
 , forestSet'
--- | Forward
+-- * Forward
 , forestSetF
 , forestSetF'
--- | Backward
+-- * Backward
 , forestSetB
 , forestSetB'
 ) where

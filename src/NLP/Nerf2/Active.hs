@@ -4,8 +4,10 @@ module NLP.Nerf2.Active
 ( Active
 , listInc
 , listDec
-, divTop
 , divTopE
+, divTop
+, divLeft
+, divRight
 ) where
 
 import Data.List (sortBy)
@@ -24,7 +26,7 @@ listInc =
 
 -- | List all active spans in order of decreasing sizes.
 listDec :: Active -> [Span]
-listDec = undefined
+listDec = reverse . listInc
 
 -- | A set of possible divisions of the (i, j) span into two
 -- neighboring (i, k) and (k+1, j) active spans.
@@ -39,3 +41,15 @@ divTop active i j =
 -- | Wrapper for `divTop`.
 divTopE :: E.InSent e => e -> Pos -> Pos -> [Pos]
 divTopE = divTop . E.activeSet . E.sentEnv
+
+divLeft :: Int -> Active -> Pos -> Pos -> [Pos]
+divLeft n active i j =
+    [ k | k <- [j + 1 .. n - 1]
+    , S.member (i, k) active
+    , S.member (j+1, k) active ]
+
+divRight :: Active -> Pos -> Pos -> [Pos]
+divRight active i j =
+    [ k | k <- [0 .. i - 1]
+    , S.member (k, j) active
+    , S.member (k, i-1) active ]

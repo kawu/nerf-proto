@@ -8,11 +8,13 @@ module NLP.Nerf2.Beta
 , at'
 -- * Beta map
 , Beta
+, betaAt
+, betaAtM
 , computeBeta
 ) where
 
 import Control.Applicative ((<$>))
-import Control.Monad (foldM, forM_, guard, void)
+import Control.Monad (foldM, forM_, guard, void, when)
 import qualified Data.Set as S
 import qualified Data.Map.Strict as M
 import qualified Data.Vector as V
@@ -32,9 +34,9 @@ import qualified NLP.Nerf2.Active as Active
 import NLP.Nerf2.Alpha (Alpha)
 import qualified NLP.Nerf2.Alpha as Alpha
 import NLP.Nerf2.Gamma (Gamma)
-import qualified NLP.Nerf2.Gamma as G
+import qualified NLP.Nerf2.Gamma as Gamma
 import NLP.Nerf2.Delta (Delta)
-import qualified NLP.Nerf2.Delta as D
+import qualified NLP.Nerf2.Delta as Delta
 
 ------------------------------------------
 -- Beta value and corresponding functions.
@@ -68,6 +70,21 @@ at' BVal{..} (N x)
 
 type Beta = M.Map Span BVal
 
+-- | For testing purposes.
+betaAtM :: N -> Pos -> Pos -> Nerf LogReal
+betaAtM x i j = do
+    alpha <- Alpha.computeAlpha
+    gamma <- Gamma.computeGamma alpha
+    delta <- Delta.computeDelta alpha
+    beta  <- computeBeta alpha gamma delta
+    return $ betaAt beta x i j
+
+betaAt :: Beta -> N -> Pos -> Pos -> LogReal
+betaAt beta x i j =
+    case M.lookup (i, j) beta of
+        Nothing -> 0
+        Just bv -> bv `at` x
+
 -- | Compute beta table given an alpha, gamma and delta tables.
 computeBeta :: Alpha -> Gamma -> Delta -> Nerf Beta
 computeBeta alpha gamma delta = do
@@ -81,22 +98,47 @@ computeBeta alpha gamma delta = do
 -- Assumption: the span is active.
 betaOn :: Alpha -> Beta -> Gamma -> Delta -> Pos -> Pos -> Nerf BVal
 betaOn alpha beta gamma delta i j = do
-    rR  <- betaOnR  gamma delta i j
+    rR  <- betaOnR  alpha gamma delta i j
     r'' <- betaOn'' alpha beta i j
-    r'  <- betaOn' rR r'' i j
+    r'  <- betaOn'  alpha rR r'' i j
     return $ BVal rR r'' r'
 
-betaOnR :: Gamma -> Delta -> Pos -> Pos -> Nerf RVect
-betaOnR gamma delta i j = do
+-- betaOnR :: Alpha -> Gamma -> Delta -> Pos -> Pos -> Nerf RVect
+-- betaOnR alpha gamma delta i j = do
+--     env <- R.ask
+--     let lbNum   = Env.inputLength env
+--         n       = Env.inputLength env
+--         av      = alpha M.! (i, j)
+--     return $ runST $ do
+--         v <- UM.replicate lbNum 0
+--         forM_ (Env.begLabels env) $ \x -> do
+--             unsafeAdd v x $ ls x * gt n x
+--         markAlpha v av
+--         U.unsafeFreeze v
+--   where
+--     lsGamma = Gamma.ls $ gamma M.! (i - 1)
+--     ls x | i > 0     = lsGamma `Gamma.at` x
+--          | otherwise = 1
+--     gtDelta = Delta.gt $ delta M.! (j + 1)
+--     gt n x | j < n - 1 = gtDelta `Delta.at` x
+--            | otherwise = 1
+
+betaOnR :: Alpha -> Gamma -> Delta -> Pos -> Pos -> Nerf RVect
+betaOnR alpha gamma delta i j = do
     env <- R.ask
-    let ls = G.ls $ gamma M.! (i - 1)
-        gt = D.gt $ delta M.! (j + 1)
+    let n  = Env.labelNum env
+        av = alpha M.! (i, j)
     return $ runST $ do
-        -- Initial vector
-        v <- UM.replicate (Env.labelNum env) 0
+        v <- UM.replicate n 0
         forM_ (Env.begLabels env) $ \x -> do
-            unsafeAdd v x $ ls `G.at` x * gt `D.at` x
+            unsafeAdd v x $ ls x * gt x
+        markAlpha v av
         U.unsafeFreeze v
+  where
+    lsGamma = Gamma.ls <$> M.lookup (i - 1) gamma 
+    ls x = maybe 1 (`Gamma.at` x) lsGamma
+    gtDelta = Delta.gt <$> M.lookup (j + 1) delta 
+    gt x = maybe 1 (`Delta.at` x) gtDelta
 
 betaOn'' :: Alpha -> Beta -> Pos -> Pos -> Nerf RVect
 betaOn'' alpha beta i j = do
@@ -143,10 +185,11 @@ betaOn'' alpha beta i j = do
             lift $ forM_ xs $ \(x, z, phi) -> do
                 unsafeAdd v z $ (tBV `at` x) * phi * (phiS U.! unN x)
   
+        markAlpha v (alpha M.! (i, j))
         U.unsafeFreeze v
 
-betaOn' :: RVect -> RVect -> Pos -> Pos -> Nerf RVect
-betaOn' rR r'' i j = do
+betaOn' :: Alpha -> RVect -> RVect -> Pos -> Pos -> Nerf RVect
+betaOn' alpha rR r'' i j = do
     lbNum <- Env.labelNum <$> R.ask
     Env.ParaEnv{..} <- R.asks Env.paraEnv
     Env.SentEnv{..} <- R.asks Env.sentEnv
@@ -156,7 +199,26 @@ betaOn' rR r'' i j = do
         forM_ (V.toList unaryN) $ \(x, y, phi) -> do
             unsafeAdd v y $ (r'' U.! unN x + rR U.! unN x)
                           * phi * (phiS U.! unN x)
+        markAlpha'' v (alpha M.! (i, j))
         U.unsafeFreeze v
+
+-- | Zero values in the first vector when alpha value for a corresponding
+-- label is equal to 0.
+markAlpha :: UM.MVector s LogReal -> Alpha.AVal -> ST s ()
+markAlpha v av = do
+    let n = UM.length v
+    forM_ [0..n-1] $ \i -> do
+        when (av `Alpha.at` N i == 0) (UM.write v i 0)
+{-# INLINE markAlpha #-}
+
+-- | Zero values in the first vector when alpha value for a corresponding
+-- label is equal to 0.
+markAlpha'' :: UM.MVector s LogReal -> Alpha.AVal -> ST s ()
+markAlpha'' v av = do
+    let n = UM.length v
+    forM_ [0..n-1] $ \i -> do
+        when (av `Alpha.atB` N i == 0) (UM.write v i 0)
+{-# INLINE markAlpha'' #-}
 
 -- | TODO: Make it really unsafe.
 unsafeAdd :: (Num a, U.Unbox a) => UM.MVector s a -> N -> a -> ST s ()

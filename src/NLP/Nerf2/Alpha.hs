@@ -38,14 +38,17 @@ data AVal = AVal
 -- | Alpha value at given symbol.
 at :: AVal -> N -> LogReal
 at v x = atF v x + atB v x
+{-# INLINE at #-}
 
 -- | Alpha' value at given symbol.
 atF :: AVal -> N -> LogReal
 atF (AVal v _) (N x) = v U.! x
+{-# INLINE atF #-}
 
 -- | Alpha'' value at given symbol.
 atB :: AVal -> N -> LogReal
 atB (AVal _ w) (N x) = w U.! x
+{-# INLINE atB #-}
 
 -- | An `RVect` with 0 values.
 rvZero :: Nerf RVect

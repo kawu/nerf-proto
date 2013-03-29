@@ -15,9 +15,14 @@ import qualified NLP.Nerf2.LogReal as L
 import qualified NLP.Nerf2.CFG as CFG
 import qualified NLP.Nerf2.Env as Env
 
+import qualified NLP.Nerf2.Tree.Set as T
+
 import qualified NLP.Nerf2.Alpha as A
 import qualified NLP.Nerf2.Alpha.Ref as AF
 import qualified NLP.Nerf2.Alpha.Rec as AC
+
+import qualified NLP.Nerf2.Beta as B
+import qualified NLP.Nerf2.Beta.Ref as BF
 
 import qualified NLP.Nerf2.Forest.Set as F
 import qualified NLP.Nerf2.Forest.Phi as F
@@ -32,9 +37,9 @@ import qualified NLP.Nerf2.Forest.Set as F
 import Debug.Trace (trace)
 
 -- | QuickCheck parameters.
-posMax      = 5
-tMax        = 4
-nMax        = 4
+posMax      = 2
+tMax        = 2
+nMax        = 2
 activeMax   = 25
 unaryMax    = 10
 binaryMax   = 10
@@ -192,6 +197,14 @@ propAlpha env (NodeN x i j) =
     r1 = AF.alpha env (Left x) i j
     r2 = AC.alpha env (Left x) i j
 
+propBeta :: Env.Layer2 -> NodeN -> Bool
+propBeta env (NodeN x i j) =
+    null ts || trace (show (r0, r1)) (r0 ~== r1)
+  where
+    ts = T.treeSet env (Left x) i j
+    r0 = runNerf env $ B.betaAtM x i j
+    r1 = BF.beta env x i j
+
 propGamma :: Env.Layer2 -> Point -> Bool
 propGamma env (Point x i) =
     trace (show (r0, r1)) $ r0 ~== r1
@@ -260,4 +273,5 @@ main = do
 --     check propSubForest
 --     check propSubForest'
 --     check propForestSet
-    check propNorm
+--     check propNorm
+    check propBeta
